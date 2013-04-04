@@ -1,0 +1,15 @@
+blib*
+pm_to_blib*
+*.tar.gz
+tmp*
+xxx*
+test*
+META.yml
+MYMETA.yml
+META.json
+MYMETA.json
+Makefile
+Makefile.old
+MANIFEST.bak
+MANIFEST
+Crypt-SRP-*
