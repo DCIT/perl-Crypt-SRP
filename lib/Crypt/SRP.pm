@@ -190,7 +190,7 @@ sub new {
   }
 
   # setup and test hash function
-  $self->{_HASH} = $hash;
+  $self->{HASH} = $hash;
   die "FATAL: invalid hash '$hash'" unless defined $self->_HASH("test");
 
   return $self;
@@ -328,10 +328,10 @@ sub random_bytes {
 
 sub _HASH {
   my ($self, $data) = @_;
-  return sha1($data)   if $self->{_HASH} eq 'SHA1';
-  return sha256($data) if $self->{_HASH} eq 'SHA256';
-  return sha384($data) if $self->{_HASH} eq 'SHA384';
-  return sha512($data) if $self->{_HASH} eq 'SHA512';
+  return sha1($data)   if $self->{HASH} eq 'SHA1';
+  return sha256($data) if $self->{HASH} eq 'SHA256';
+  return sha384($data) if $self->{HASH} eq 'SHA384';
+  return sha512($data) if $self->{HASH} eq 'SHA512';
   return undef;
 }
 
