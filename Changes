@@ -1,7 +1,7 @@
 Changes for Crypt::SRP
 
-0.002   2013/xx/xx
-        - NEXT
+0.002   2013/04/05
+        - sample srp_client.pl + srp_server.pl (+ necessary changes)
 
 0.001   2013/04/04
         - initial version

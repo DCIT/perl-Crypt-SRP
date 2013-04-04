@@ -9,7 +9,9 @@ our $VERSION = '0.002';
 $VERSION = eval $VERSION;
 
 use Math::BigInt try => 'GMP';
-use Digest::SHA  qw(sha1 sha256 sha384 sha512);
+
+use Digest::SHA;
+use Digest::SHA1; #XXX-FIXME just workaround as Digest::SHA is buggy when used together with Mojolicious!!!!
 
 ### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
@@ -199,11 +201,12 @@ sub new {
 ### class PUBLIC methods
 
 sub client_init {
-  my ($self, $Bytes_I, $Bytes_P, $Bytes_s) = @_;
+  my ($self, $Bytes_I, $Bytes_P, $Bytes_s, $Bytes_B) = @_;
   $self->{Bytes_I} = $Bytes_I;
   $self->{Bytes_P} = $Bytes_P;
   $self->{Bytes_s} = $Bytes_s;
-  $self->{Num_x} = $self->_calc_x();            # x = _HASH(s | _HASH(I | ":" | P))
+  $self->{Num_B} = _bytes2bignum($Bytes_B);
+  $self->{Num_x} = $self->_calc_x();            # x = HASH(s | HASH(I | ":" | P))
 }
 
 sub server_init {
@@ -217,64 +220,62 @@ sub server_init {
 }
 
 sub client_compute_A {
-  my ($self) = @_;
-  $self->{Num_a} = $self->_generate_SRP_a;      # a = random() // a has min 256 bits, a < N
-  $self->{Num_A} = $self->_calc_A;              # A = g^a % N
-  return wantarray ? (_bignum2bytes($self->{Num_A}), _bignum2bytes($self->{Num_a})) : _bignum2bytes($self->{Num_A});
+  my ($self, $a_len) = @_;
+  $self->{Num_a} = $self->_generate_SRP_a($a_len); # a = random() // a has min 256 bits, a < N
+  $self->{Num_A} = $self->_calc_A;                 # A = g^a % N
+  return (_bignum2bytes($self->{Num_A}), _bignum2bytes($self->{Num_a}));
 }
 
 sub client_compute_M1 {
-  my ($self, $Bytes_B) = @_;
-  $self->{Num_B} = _bytes2bignum($Bytes_B);
-  $self->{Num_u} = $self->_calc_u;              # u = _HASH(_PAD(A) | _PAD(B))
-  $self->{Num_k} = $self->_calc_k;              # k = _HASH(N | _PAD(g))
-  $self->{Num_S} = $self->_calc_S_client;       # S = (B - (k * ((g^x)%N) )) ^ (a + (u * x)) % N
-  $self->{Bytes_K} = $self->_calc_K;            # K = _HASH( _PAD(S) )
-  $self->{Bytes_M1} = $self->_calc_M1;          # M1 = _HASH( _HASH(N) XOR _HASH(_PAD(g)) | _HASH(I) | s | _PAD(A) | _PAD(B) | K )
+  my $self = shift;
+  $self->{Num_u} = $self->_calc_u;          # u = HASH(PAD(A) | PAD(B))
+  $self->{Num_k} = $self->_calc_k;          # k = HASH(N | PAD(g))
+  $self->{Num_S} = $self->_calc_S_client;   # S = (B - (k * ((g^x)%N) )) ^ (a + (u * x)) % N
+  $self->{Bytes_K} = $self->_calc_K;        # K = HASH( PAD(S) )
+  $self->{Bytes_M1} = $self->_calc_M1;      # M1 = HASH( HASH(N) XOR HASH(PAD(g)) | HASH(I) | s | PAD(A) | PAD(B) | K )
   return $self->{Bytes_M1};
 }
 
 sub client_verify_M2 {
   my ($self, $Bytes_M2) = @_;
-  my $M2 = $self->_calc_M2;                     # M2 = _HASH( _PAD(A) | M1 | K )
+  my $M2 = $self->_calc_M2;                 # M2 = HASH( PAD(A) | M1 | K )
   return 0 unless $Bytes_M2 eq $M2;
   $self->{Bytes_M2} = $Bytes_M2;
   return 1;
 }
 
 sub server_compute_B {
-  my ($self) = @_;
-  $self->{Num_b} = $self->_generate_SRP_b;      # b = random() // b has min 256 bits, b < N
-  $self->{Num_k} = $self->_calc_k;              # k = _HASH(N | _PAD(g))
-  $self->{Num_B} = $self->_calc_B;              # B = ( k*v + (g^b % N) ) % N
-  return wantarray ? (_bignum2bytes($self->{Num_B}), _bignum2bytes($self->{Num_b})) : _bignum2bytes($self->{Num_B});
+  my ($self, $b_len) = @_;
+  $self->{Num_b} = $self->_generate_SRP_b($b_len); # b = random() // b has min 256 bits, b < N
+  $self->{Num_k} = $self->_calc_k;                 # k = HASH(N | PAD(g))
+  $self->{Num_B} = $self->_calc_B;                 # B = ( k*v + (g^b % N) ) % N
+  return (_bignum2bytes($self->{Num_B}), _bignum2bytes($self->{Num_b}));
 }
 
 sub server_verify_M1 {
-  my ($self, $Bytes_A, $Bytes_M1) = @_;
-  $self->{Num_A} = _bytes2bignum($Bytes_A);
-  $self->{Num_u} = $self->_calc_u;              # u = _HASH(_PAD(A) | _PAD(B))
-  $self->{Num_S} = $self->_calc_S_server;       # S = ( (A * ((v^u)%N)) ^ b) % N
-  $self->{Bytes_K} = $self->_calc_K;            # K = _HASH( _PAD(S) )
-  my $M1 = $self->_calc_M1;                     # M1 = _HASH( _HASH(N) XOR _HASH(_PAD(g)) | _HASH(I) | s | _PAD(A) | _PAD(B) | K )
+  my ($self, $Bytes_M1) = @_;
+  $self->{Num_u} = $self->_calc_u;          # u = HASH(PAD(A) | PAD(B))
+  $self->{Num_S} = $self->_calc_S_server;   # S = ( (A * ((v^u)%N)) ^ b) % N
+  $self->{Bytes_K} = $self->_calc_K;        # K = HASH( PAD(S) )
+  my $M1 = $self->_calc_M1;                 # M1 = HASH( HASH(N) XOR HASH(PAD(g)) | HASH(I) | s | PAD(A) | PAD(B) | K )
   return 0 unless $Bytes_M1 eq $M1;
   $self->{Bytes_M1} = $Bytes_M1;
   return 1;
 }
 
 sub server_compute_M2 {
-  my ($self) = @_;
-  $self->{Bytes_M2}  = $self->_calc_M2;         # M2 = _HASH( _PAD(A) | M1 | K )
+  my $self = shift;
+  $self->{Bytes_M2}  = $self->_calc_M2;     # M2 = HASH( PAD(A) | M1 | K )
   return $self->{Bytes_M2};
 }
 
 sub get_secret_K {
-  my ($self) = @_;
+  my $self = shift;
   return $self->{Bytes_K};
 }
 
 sub get_secret_S {
-  my ($self) = @_;
+  my $self = shift;
   return _bignum2bytes($self->{Num_S});
 }
 
@@ -286,15 +287,24 @@ sub compute_verifier {
 
 sub compute_verifier_and_salt {
   my ($self, $Bytes_I, $Bytes_P, $salt_len) = @_;
-  $salt_len = 32 unless defined $salt_len;
+  $salt_len ||= 32;
   my $Bytes_s = $self->random_bytes($salt_len);
   $self->client_init($Bytes_I, $Bytes_P, $Bytes_s);
   return ($Bytes_s, $self->_calc_v);
 }
 
+sub validate_A_or_B {
+  my ($self, $bytes) = @_;
+  return 0 unless $bytes && $self->{Num_N};
+  my $num = _bytes2bignum($bytes);
+  return 0 unless $num;
+  return 0 if $num->bmod($self->{Num_N}) == 0; # num % N == 0
+  return 1;
+}
+
 sub random_bytes {
-  my $self = shift;
-  my $length = shift || 32;
+  my ($self, $length) = @_;
+  $length ||= 32;
   my $rv;
 
   if (eval {require Crypt::OpenSSL::Random}) {
@@ -328,10 +338,11 @@ sub random_bytes {
 
 sub _HASH {
   my ($self, $data) = @_;
-  return sha1($data)   if $self->{HASH} eq 'SHA1';
-  return sha256($data) if $self->{HASH} eq 'SHA256';
-  return sha384($data) if $self->{HASH} eq 'SHA384';
-  return sha512($data) if $self->{HASH} eq 'SHA512';
+  return Digest::SHA1::sha1($data)   if $self->{HASH} eq 'SHA1';   #XXX-TEMPORARY-HACK
+  #return Digest::SHA::sha1($data)   if $self->{HASH} eq 'SHA1';   #XXX-FIXME just workaround as Digest::SHA is buggy when used together with Mojolicious!!!!
+  return Digest::SHA::sha256($data) if $self->{HASH} eq 'SHA256';
+  return Digest::SHA::sha384($data) if $self->{HASH} eq 'SHA384';
+  return Digest::SHA::sha512($data) if $self->{HASH} eq 'SHA512';
   return undef;
 }
 
@@ -343,8 +354,8 @@ sub _PAD {
 
 sub _calc_x {
   my $self = shift;
-  return undef unless defined $self->{Bytes_I} && defined $self->{Bytes_P} && defined $self->{Bytes_s};
-  # x = _HASH(s | _HASH(I | ":" | P))
+  return undef unless defined $self->{Bytes_s} && defined $self->{Bytes_I} && defined $self->{Bytes_P};
+  # x = HASH(s | HASH(I | ":" | P))
   my $Bytes_x = $self->_HASH( $self->{Bytes_s} . $self->_HASH($self->{Bytes_I} . ':' . $self->{Bytes_P}) );
   my $Num_x = _bytes2bignum($Bytes_x);
   return $Num_x;
@@ -370,7 +381,7 @@ sub _calc_A {
 sub _calc_u {
   my $self = shift;
   return undef unless defined $self->{Num_A} && defined $self->{Num_B};
-  # u = _HASH(_PAD(A) | _PAD(B))
+  # u = HASH(PAD(A) | PAD(B))
   my $Bytes_u = $self->_HASH( $self->_PAD(_bignum2bytes($self->{Num_A})) . $self->_PAD(_bignum2bytes($self->{Num_B})) );
   my $Num_u = _bytes2bignum($Bytes_u);
   return $Num_u;
@@ -379,7 +390,7 @@ sub _calc_u {
 sub _calc_k {
   my $self = shift;
   return undef unless defined $self->{Num_N} && defined $self->{Num_g};
-  # k = _HASH(N | _PAD(g))
+  # k = HASH(N | PAD(g))
   my $Num_k = _bytes2bignum( $self->_HASH(_bignum2bytes($self->{Num_N}) . $self->_PAD(_bignum2bytes($self->{Num_g}))) );
   return $Num_k;
 }
@@ -408,7 +419,7 @@ sub _calc_S_server {
 sub _calc_K {
   my $self = shift;
   return undef unless defined $self->{Num_S};
-  # K = _HASH( _PAD(S) )
+  # K = HASH( PAD(S) )
   my $Bytes_K = $self->_HASH(_bignum2bytes($self->_PAD($self->{Num_S})));
   return $Bytes_K
 }
@@ -417,7 +428,7 @@ sub _calc_M1 {
   my $self = shift;
   return undef unless defined $self->{Num_A} && defined $self->{Num_B} && defined $self->{Num_N} && defined $self->{Num_g};
   return undef unless defined $self->{Bytes_K} && defined $self->{Bytes_I} && defined $self->{Bytes_s};
-  # M1 = _HASH( _HASH(N) XOR _HASH(_PAD(g)) | _HASH(I) | s | _PAD(A) | _PAD(B) | K )
+  # M1 = HASH( HASH(N) XOR HASH(PAD(g)) | HASH(I) | s | PAD(A) | PAD(B) | K )
   my $data1 = ($self->_HASH(_bignum2bytes($self->{Num_N})) ^ $self->_HASH($self->_PAD(_bignum2bytes($self->{Num_g})))) . $self->_HASH($self->{Bytes_I});
   my $data2 = $self->{Bytes_s} . $self->_PAD(_bignum2bytes($self->{Num_A})) . $self->_PAD(_bignum2bytes($self->{Num_B})) . $self->{Bytes_K};
   my $Bytes_M1 = $self->_HASH( $data1 . $data2 );
@@ -427,7 +438,7 @@ sub _calc_M1 {
 sub _calc_M2 {
   my $self = shift;
   return undef unless defined $self->{Bytes_K} && defined $self->{Num_A} && defined $self->{Bytes_M1};
-  # M2 = _HASH( _PAD(A) | M1 | K )
+  # M2 = HASH( PAD(A) | M1 | K )
   my $Bytes_M2 = $self->_HASH( $self->_PAD(_bignum2bytes($self->{Num_A})) . $self->{Bytes_M1} . $self->{Bytes_K});
   return $Bytes_M2;
 }
@@ -442,8 +453,7 @@ sub _calc_B {
 }
 
 sub _generate_SRP_a_or_b {
-  my $self = shift;
-  my $pre = shift;
+  my ($self, $len, $pre) = @_;
   my $min = Math::BigInt->new(256)->bpow(31); # we require minimum 256bits (=32bytes)
   my $max = Math::BigInt->new($self->{Num_N})->copy->bsub(1); # $max = N-1
   if (defined $pre) {
@@ -452,27 +462,31 @@ sub _generate_SRP_a_or_b {
     die "Invalid (too big) prefefined value"   unless $result->bcmp($max) <= 0;
     return $result;
   }
-  while(1) {
-    my $result = _bytes2bignum($self->random_bytes($self->{N_LENGTH} + 5));
+  $len ||= $self->{N_LENGTH};
+  return undef if $len<32;
+  for(1..100) {
+    my $result = _bytes2bignum($self->random_bytes($len));
     $result->bmod($max)->badd(1); # 1 <= $result <= N-1
     return $result if $result->bcmp($min) >= 0 # $min <= $result <= N-1
   }
+  return undef;
 }
 
 sub _generate_SRP_a {
-  my $self = shift;
-  $self->_generate_SRP_a_or_b($self->{predefined_a});
+  my ($self, $a_len) = @_;
+  $self->_generate_SRP_a_or_b($a_len, $self->{predefined_a});
 }
 
 sub _generate_SRP_b {
-  my $self = shift;
-  $self->_generate_SRP_a_or_b($self->{predefined_b});
+  my ($self, $b_len) = @_;
+  $self->_generate_SRP_a_or_b($b_len, $self->{predefined_b});
 }
 
 ### helper functions - NOT METHODS!!!
 
 sub _bignum2bytes {
   my $bignum = shift;
+  return undef unless defined $bignum;
   my $hex = $bignum->as_hex;
   $hex =~ s/^0x//;                    # strip leading '0x...'
   $hex = "0$hex" if length($hex) % 2; # add leading '0' if neccessary
@@ -481,6 +495,7 @@ sub _bignum2bytes {
 
 sub _bytes2bignum {
   my $bytes = shift;
+  return undef unless defined $bytes;
   return Math::BigInt->from_hex(unpack("H*", $bytes));
 }
 
@@ -523,24 +538,29 @@ Example 2 - SRP login handshake:
                            ###SERVER###
                            my %USERS;  # sort of "user database"
                            my %TOKENS; # sort of temporary "token database"
-                           my $srv = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
-                           my ($B, $b) = $srv->server_compute_B;
+                           my $v = $USERS{$I}->{verifier};
                            my $s = $USERS{$I}->{salt};
+                           my $srv = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
+                           return unless $srv->validate_A_or_B($A);
+                           $srv->server_init($I, $v, $s);
+                           my ($B, $b) = $srv->server_compute_B;
                            my $token = $srv->random_bytes(32);
-                           $TOKENS{$token} = [$I, $A, $b, $B];
+                           $TOKENS{$token} = [$I, $A, $B, $b];
 
  #  response[1] from server:  <--- ($B, $s, $token) <---
 
  ###CLIENT###
- $cli->client_init($I, $P, $s);
- my $M1 = $cli->client_compute_M1($B)
+ return unless $cli->validate_A_or_B($B);
+ $cli->client_init($I, $P, $s, $B);
+ my $M1 = $cli->client_compute_M1;
 
  #  request[2] to server:  ---> /auth/srp_step2 ($M1, $token) --->
 
                            ###SERVER###
                            my $M2 = '';
-                           my ($I, $A, $b, $B) = @{delete $TOKENS{$token}};
-                           return unless $I && $A && $b && $B;
+                           return unless $M1 && $token && $TOKENS{$token};
+                           my ($I, $A, $B, $b) = @{delete $TOKENS{$token}};
+                           return unless $I && $A && $B && $b && $USERS{$I};
                            my $s = $USERS{$I}->{salt};
                            my $v = $USERS{$I}->{verifier};
                            return unless $s && $v;
@@ -553,13 +573,12 @@ Example 2 - SRP login handshake:
  #  response[2] from server:  <--- ($M2) <---
 
  ###CLIENT###
- my $K;
  if ($M2 && $cli->client_verify_M2($M2)) {
-   $K = $srv->get_secret_K; # shared secret
-   print "Success";
+   my $K = $srv->get_secret_K; # shared secret
+   print "SUCCESS";
  }
  else {
-   print "Error";
+   print "ERROR";
  }
 
 =head1 DESCRIPTION
@@ -612,13 +631,13 @@ It tries to use one of the following:
 
 =item * client_init
 
- $srp->client_init($I, $P, $s);
+ $srp->client_init($I, $P, $s, $B);
 
 =item * client_compute_A
 
- my $A = $srp->client_compute_A();
- #or
  my ($A, $a) = $srp->client_compute_A();
+ #or
+ my ($A, $a) = $srp->client_compute_A($a_len);
 
 =item * client_compute_M1
 
@@ -646,9 +665,9 @@ It tries to use one of the following:
 
 =item * server_compute_B
 
- my $B = $srp->server_compute_B();
- #or
  my ($B, $b) = $srp->server_compute_B();
+ #or
+ my ($B, $b) = $srp->server_compute_B($b_len);
 
 =item * server_verify_M1
 
@@ -665,6 +684,10 @@ It tries to use one of the following:
 =item * get_secret_K
 
  my $K = $srp->get_secret_K();
+
+=item * validate_A_or_B
+
+ my $valid = validate_A_or_B($A_or_B);
 
 =item * random_bytes
 

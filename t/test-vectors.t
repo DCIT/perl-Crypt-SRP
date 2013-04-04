@@ -29,32 +29,32 @@ sub SRP_handshake {
     ($Bytes_s, $Bytes_v) = Crypt::SRP->new($group, $hash)->compute_verifier_and_salt($Bytes_I, $Bytes_P); 
   }
 
-  my $client = Crypt::SRP->new($group, $hash);
-  $client->client_init($Bytes_I, $Bytes_P, $Bytes_s);
-  $client->{predefined_a} = Math::BigInt->from_hex($Hex_a) if defined $Hex_a;
-
-  my $server = Crypt::SRP->new($group, $hash);
-  $server->server_init($Bytes_I, $Bytes_v, $Bytes_s);
-  $server->{predefined_b} = Math::BigInt->from_hex($Hex_b) if defined $Hex_b;
-
   ###CLIENT:                                              
-  my $Bytes_A = $client->client_compute_A;
+  my $client = Crypt::SRP->new($group, $hash);
+  $client->{predefined_a} = Math::BigInt->from_hex($Hex_a) if defined $Hex_a;
+  my ($Bytes_A, $Bytes_a) = $client->client_compute_A;
 
-  # client -[$Bytes_A]---> server #
+  # client -[$Bytes_I, $Bytes_A]---> server #
                                                           
   ###SERVER:
-  my $Bytes_B = $server->server_compute_B;
+  my $server1 = Crypt::SRP->new($group, $hash);
+  $server1->server_init($Bytes_I, $Bytes_v, $Bytes_s);
+  $server1->{predefined_b} = Math::BigInt->from_hex($Hex_b) if defined $Hex_b;
+  my ($Bytes_B, $Bytes_b) = $server1->server_compute_B();
 
-  # client <---[$Bytes_B]- server #
+  # client <---[$Bytes_B, $Bytes_s]- server #
 
   ###CLIENT:                                              
-  my $Bytes_M1 = $client->client_compute_M1($Bytes_B);
+  $client->client_init($Bytes_I, $Bytes_P, $Bytes_s, $Bytes_B);
+  my $Bytes_M1 = $client->client_compute_M1();
 
   # client -[$Bytes_M1]--> server #
 
   ###SERVER:
-  $server->server_verify_M1($Bytes_A, $Bytes_M1) or die "FATAL: M1 mismatch";
-  my $Bytes_M2 = $server->server_compute_M2;
+  my $server2 = Crypt::SRP->new($group, $hash);
+  $server2->server_init($Bytes_I, $Bytes_v, $Bytes_s, $Bytes_A, $Bytes_B, $Bytes_b);
+  $server2->server_verify_M1($Bytes_M1) or die "FATAL: M1 mismatch";
+  my $Bytes_M2 = $server2->server_compute_M2;
 
   # client <--[$Bytes_M2]- server #
 
@@ -62,27 +62,27 @@ sub SRP_handshake {
   $client->client_verify_M2($Bytes_M2) or die "FATAL: M2 mismatch";
 
   ###CLIENT/SERVER on both sides
-  die "FATAL: K mismatch" unless $client->get_secret_K eq $server->get_secret_K;
-  my $Bytes_K = $server->get_secret_K;
+  die "FATAL: K mismatch" unless $client->get_secret_K eq $server2->get_secret_K;
+  my $Bytes_K = $server2->get_secret_K;
 
   my %result = (
-        N  => { bytes=> Crypt::SRP::_bignum2bytes($server->{Num_N}) },
-        g  => { bytes=> Crypt::SRP::_bignum2bytes($server->{Num_g}) },
+        N  => { bytes=> Crypt::SRP::_bignum2bytes($server2->{Num_N}) },
+        g  => { bytes=> Crypt::SRP::_bignum2bytes($server2->{Num_g}) },
         I  => { bytes=> $client->{Bytes_I} },
         P  => { bytes=> $client->{Bytes_P} },
         s  => { bytes=> $client->{Bytes_s} },
-        k  => { bytes=> Crypt::SRP::_bignum2bytes($server->{Num_k}) },
+        k  => { bytes=> Crypt::SRP::_bignum2bytes($server1->{Num_k}) },
         x  => { bytes=> Crypt::SRP::_bignum2bytes($client->{Num_x}) },
-        v  => { bytes=> Crypt::SRP::_bignum2bytes($server->{Num_v}) },
+        v  => { bytes=> Crypt::SRP::_bignum2bytes($server1->{Num_v}) },
         a  => { bytes=> Crypt::SRP::_bignum2bytes($client->{Num_a}) },
-        b  => { bytes=> Crypt::SRP::_bignum2bytes($server->{Num_b}) },
+        b  => { bytes=> Crypt::SRP::_bignum2bytes($server1->{Num_b}) },
         A  => { bytes=> $Bytes_A },
         B  => { bytes=> $Bytes_B },
-        u  => { bytes=> Crypt::SRP::_bignum2bytes($server->{Num_u}) },
+        u  => { bytes=> Crypt::SRP::_bignum2bytes($server2->{Num_u}) },
         M1 => { bytes=> $Bytes_M1 },
         M2 => { bytes=> $Bytes_M2 },
-        S  => { bytes=> $server->get_secret_S },
-        K  => { bytes=> $server->get_secret_K },
+        S  => { bytes=> $server2->get_secret_S },
+        K  => { bytes=> $server2->get_secret_K },
   );
 
   return \%result;
