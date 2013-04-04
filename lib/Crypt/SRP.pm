@@ -501,9 +501,9 @@ Example 1 - creating a new user and his/her password verifier:
  my $P = '...'; # password entered by user
  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
  my ($s, $v) = $cli->compute_verifier_and_salt($I, $P);
- 
+
  #  request to server:  ---> /auth/create_user [$I, $s, $v] --->
- 
+
                            ###SERVER###
                            my %USERS;  # sort of "user database"
                            die "user already exists" unless $USERS{$I};
@@ -517,9 +517,9 @@ Example 2 - SRP login handshake:
  my $P = '...'; # password entered by user
  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
  my ($A, $a) = $cli->client_compute_A;
- 
+
  #  request[1] to server:  ---> /auth/srp_step1 ($I, $A) --->
- 
+
                            ###SERVER###
                            my %USERS;  # sort of "user database"
                            my %TOKENS; # sort of temporary "token database"
@@ -528,15 +528,15 @@ Example 2 - SRP login handshake:
                            my $s = $USERS{$I}->{salt};
                            my $token = $srv->random_bytes(32);
                            $TOKENS{$token} = [$I, $A, $b, $B];
- 
+
  #  response[1] from server:  <--- ($B, $s, $token) <---
- 
+
  ###CLIENT###
  $cli->client_init($I, $P, $s);
  my $M1 = $cli->client_compute_M1($B)
- 
+
  #  request[2] to server:  ---> /auth/srp_step2 ($M1, $token) --->
- 
+
                            ###SERVER###
                            my $M2 = '';
                            my ($I, $A, $b, $B) = @{delete $TOKENS{$token}};
@@ -549,9 +549,9 @@ Example 2 - SRP login handshake:
                            return unless $srv->server_verify_M1($M1);
                            $M2 = $srv->server_compute_M2;
                            my $K = $srv->get_secret_K; # shared secret
- 
+
  #  response[2] from server:  <--- ($M2) <---
- 
+
  ###CLIENT###
  my $K;
  if ($M2 && $cli->client_verify_M2($M2)) {
