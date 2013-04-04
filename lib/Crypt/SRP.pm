@@ -548,14 +548,14 @@ Example 2 - SRP login handshake:
                            $srv->server_init($I, $v, $s, $A, $B, $b);
                            return unless $srv->server_verify_M1($M1);
                            $M2 = $srv->server_compute_M2;
-                           my $K = $srv->get_secret_K;
+                           my $K = $srv->get_secret_K; # shared secret
  
  #  response[2] from server:  <--- ($M2) <---
  
  ###CLIENT###
  my $K;
  if ($M2 && $cli->client_verify_M2($M2)) {
-   $K = $srv->get_secret_K
+   $K = $srv->get_secret_K; # shared secret
    print "Success";
  }
  else {
