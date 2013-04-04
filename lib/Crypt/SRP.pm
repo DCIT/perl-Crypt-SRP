@@ -207,17 +207,19 @@ sub client_init {
 }
 
 sub server_init {
-  my ($self, $Bytes_I, $Bytes_v, $Bytes_s) = @_;
+  my ($self, $Bytes_I, $Bytes_v, $Bytes_s, $Bytes_A, $Bytes_b) = @_;
   $self->{Bytes_I} = $Bytes_I;
   $self->{Num_v} = _bytes2bignum($Bytes_v);
   $self->{Bytes_s} = $Bytes_s;
+  $self->{Num_A} = _bytes2bignum($Bytes_A) if defined $Bytes_A;
+  $self->{Num_b} = _bytes2bignum($Bytes_b) if defined $Bytes_b;
 }
 
 sub client_compute_A {
   my ($self) = @_;
   $self->{Num_a} = $self->generate_SRP_a;       # a = random() // a has min 256 bits, a < N
   $self->{Num_A} = $self->_calc_A;              # A = g^a % N
-  return _bignum2bytes($self->{Num_A});
+  return wantarray ? (_bignum2bytes($self->{Num_A}), _bignum2bytes($self->{Num_a})) : _bignum2bytes($self->{Num_A});
 }
 
 sub client_compute_M1 {
@@ -244,7 +246,7 @@ sub server_compute_B {
   $self->{Num_b} = $self->generate_SRP_b;       # b = random() // b has min 256 bits, b < N
   $self->{Num_k} = $self->_calc_k;              # k = HASH(N | PAD(g))
   $self->{Num_B} = $self->_calc_B;              # B = ( k*v + (g^b % N) ) % N
-  return _bignum2bytes($self->{Num_B});
+  return wantarray ? (_bignum2bytes($self->{Num_B}), _bignum2bytes($self->{Num_b})) : _bignum2bytes($self->{Num_B});
 }
 
 sub server_verify_M1 {
