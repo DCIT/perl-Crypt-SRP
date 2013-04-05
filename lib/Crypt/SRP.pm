@@ -498,7 +498,7 @@ sub _bignum2bytes {
 sub _bytes2bignum {
   my $bytes = shift;
   return undef unless defined $bytes;
-  return Math::BigInt->from_hex(unpack("H*", $bytes));
+  return Math::BigInt->from_hex('0x'.unpack("H*", $bytes));
 }
 
 1;

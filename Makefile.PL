@@ -7,6 +7,7 @@ WriteMakefile(
     AUTHOR       => 'Karel Miko',
     VERSION_FROM => 'lib/Crypt/SRP.pm',
     ABSTRACT     => 'Secure Remote Protocol',
+    LICENSE      => 'perl',
     PREREQ_PM    => {
       'Test::More'   => 0,
       'Math::BigInt' => 0,
