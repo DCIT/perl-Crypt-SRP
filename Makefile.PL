@@ -10,7 +10,7 @@ WriteMakefile(
     LICENSE      => 'perl',
     PREREQ_PM    => {
       'Test::More'   => 0,
-      'Math::BigInt' => 0,
+      'Math::BigInt' => '1.991',
       'Digest::SHA'  => 0,
     },
 );

@@ -181,6 +181,7 @@ sub new {
   if ($group_params =~ /RFC5054-(1024|1536|2048|3072|4096|6144|8192)bit$/) {
     my $str = predefined_groups->{$group_params}->{N};
     $str =~ s/[\r\n\s]*//sg;
+    $str = "0x$str" unless $str =~ /^0x/;
     $self->{Num_N} = Math::BigInt->from_hex($str);
     $self->{Num_g} = Math::BigInt->new(predefined_groups->{$group_params}->{g});
     $self->{N_LENGTH} = length(_bignum2bytes($self->{Num_N}));
@@ -241,7 +242,7 @@ sub client_compute_M1 {
 sub client_verify_M2 {
   my ($self, $Bytes_M2) = @_;
   my $M2 = $self->_calc_M2;                  # M2 = HASH( PAD(A) | M1 | K )
-  return 0 unless $Bytes_M2 eq $M2;
+  return 0 unless defined $Bytes_M2 && defined $M2 && $Bytes_M2 eq $M2;
   $self->{Bytes_M2} = $Bytes_M2;
   return 1;
 }
@@ -402,9 +403,10 @@ sub _calc_S_client {
   return undef unless defined $self->{Num_B} && defined $self->{Num_a} && defined $self->{Num_u} && defined $self->{Num_k};
   return undef unless defined $self->{Num_x} && defined $self->{Num_N} && defined $self->{Num_g};
   # S = (B - (k * ((g^x)%N) )) ^ (a + (u * x)) % N
-  my $tmp1 = Math::BigInt->new($self->{Num_g})->copy->bmodpow($self->{Num_x}, $self->{Num_N})->bmul($self->{Num_k});
+  my $tmp1 = Math::BigInt->new($self->{Num_g})->copy->bmodpow($self->{Num_x}, $self->{Num_N})->bmul($self->{Num_k})->bmod($self->{Num_N});
   my $tmp2 = Math::BigInt->new($self->{Num_u})->copy->bmul($self->{Num_x})->badd($self->{Num_a});
-  my $Num_S = Math::BigInt->new($self->{Num_B})->bsub($tmp1)->bmodpow($tmp2, $self->{Num_N});
+  my $tmp3 = Math::BigInt->new($self->{Num_B})->copy->bsub($tmp1);
+  my $Num_S = $tmp3->bmodpow($tmp2, $self->{Num_N}); #XXX this fails on Math-BigInt before 1.991
   return $Num_S;
 }
 
@@ -422,7 +424,7 @@ sub _calc_K {
   my $self = shift;
   return undef unless defined $self->{Num_S};
   # K = HASH( PAD(S) )
-  my $Bytes_K = $self->_HASH(_bignum2bytes($self->_PAD($self->{Num_S})));
+  my $Bytes_K = $self->_HASH($self->_PAD($self->{Num_S}));
   return $Bytes_K
 }
 
@@ -488,7 +490,7 @@ sub _generate_SRP_b {
 
 sub _bignum2bytes {
   my $bignum = shift;
-  return undef unless defined $bignum;
+  return undef unless defined $bignum && ref($bignum) eq 'Math::BigInt';
   my $hex = $bignum->as_hex;
   $hex =~ s/^0x//;                    # strip leading '0x...'
   $hex = "0$hex" if length($hex) % 2; # add leading '0' if neccessary
