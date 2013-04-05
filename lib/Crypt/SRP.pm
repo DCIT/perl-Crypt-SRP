@@ -199,22 +199,26 @@ sub new {
 ### class PUBLIC methods
 
 sub client_init {
-  my ($self, $Bytes_I, $Bytes_P, $Bytes_s, $Bytes_B) = @_;
+  my ($self, $Bytes_I, $Bytes_P, $Bytes_s, $Bytes_B, $Bytes_A, $Bytes_a) = @_;
   $self->{Bytes_I} = $Bytes_I;
   $self->{Bytes_P} = $Bytes_P;
   $self->{Bytes_s} = $Bytes_s;
-  $self->{Num_B} = _bytes2bignum($Bytes_B);
-  $self->{Num_x} = $self->_calc_x();            # x = HASH(s | HASH(I | ":" | P))
+  $self->{Num_x}   = $self->_calc_x();            # x = HASH(s | HASH(I | ":" | P))
+  #optional params
+  $self->{Num_B}   = _bytes2bignum($Bytes_B) if defined $Bytes_B;
+  $self->{Num_A}   = _bytes2bignum($Bytes_A) if defined $Bytes_A;
+  $self->{Num_a}   = _bytes2bignum($Bytes_a) if defined $Bytes_a;
 }
 
 sub server_init {
   my ($self, $Bytes_I, $Bytes_v, $Bytes_s, $Bytes_A, $Bytes_B, $Bytes_b) = @_;
   $self->{Bytes_I} = $Bytes_I;
-  $self->{Num_v} = _bytes2bignum($Bytes_v);
+  $self->{Num_v}   = _bytes2bignum($Bytes_v);
   $self->{Bytes_s} = $Bytes_s;
-  $self->{Num_A} = _bytes2bignum($Bytes_A) if defined $Bytes_A;
-  $self->{Num_B} = _bytes2bignum($Bytes_B) if defined $Bytes_B;
-  $self->{Num_b} = _bytes2bignum($Bytes_b) if defined $Bytes_b;
+  #optional params
+  $self->{Num_A}   = _bytes2bignum($Bytes_A) if defined $Bytes_A;
+  $self->{Num_B}   = _bytes2bignum($Bytes_B) if defined $Bytes_B;
+  $self->{Num_b}   = _bytes2bignum($Bytes_b) if defined $Bytes_b;
 }
 
 sub client_compute_A {
@@ -226,17 +230,17 @@ sub client_compute_A {
 
 sub client_compute_M1 {
   my $self = shift;
-  $self->{Num_u} = $self->_calc_u;          # u = HASH(PAD(A) | PAD(B))
-  $self->{Num_k} = $self->_calc_k;          # k = HASH(N | PAD(g))
-  $self->{Num_S} = $self->_calc_S_client;   # S = (B - (k * ((g^x)%N) )) ^ (a + (u * x)) % N
-  $self->{Bytes_K} = $self->_calc_K;        # K = HASH( PAD(S) )
-  $self->{Bytes_M1} = $self->_calc_M1;      # M1 = HASH( HASH(N) XOR HASH(PAD(g)) | HASH(I) | s | PAD(A) | PAD(B) | K )
+  $self->{Num_u}    = $self->_calc_u;        # u = HASH(PAD(A) | PAD(B))
+  $self->{Num_k}    = $self->_calc_k;        # k = HASH(N | PAD(g))
+  $self->{Num_S}    = $self->_calc_S_client; # S = (B - (k * ((g^x)%N) )) ^ (a + (u * x)) % N
+  $self->{Bytes_K}  = $self->_calc_K;        # K = HASH( PAD(S) )
+  $self->{Bytes_M1} = $self->_calc_M1;       # M1 = HASH( HASH(N) XOR HASH(PAD(g)) | HASH(I) | s | PAD(A) | PAD(B) | K )
   return $self->{Bytes_M1};
 }
 
 sub client_verify_M2 {
   my ($self, $Bytes_M2) = @_;
-  my $M2 = $self->_calc_M2;                 # M2 = HASH( PAD(A) | M1 | K )
+  my $M2 = $self->_calc_M2;                  # M2 = HASH( PAD(A) | M1 | K )
   return 0 unless $Bytes_M2 eq $M2;
   $self->{Bytes_M2} = $Bytes_M2;
   return 1;
@@ -252,10 +256,10 @@ sub server_compute_B {
 
 sub server_verify_M1 {
   my ($self, $Bytes_M1) = @_;
-  $self->{Num_u} = $self->_calc_u;          # u = HASH(PAD(A) | PAD(B))
-  $self->{Num_S} = $self->_calc_S_server;   # S = ( (A * ((v^u)%N)) ^ b) % N
-  $self->{Bytes_K} = $self->_calc_K;        # K = HASH( PAD(S) )
-  my $M1 = $self->_calc_M1;                 # M1 = HASH( HASH(N) XOR HASH(PAD(g)) | HASH(I) | s | PAD(A) | PAD(B) | K )
+  $self->{Num_u}   = $self->_calc_u;         # u = HASH(PAD(A) | PAD(B))
+  $self->{Num_S}   = $self->_calc_S_server;  # S = ( (A * ((v^u)%N)) ^ b) % N
+  $self->{Bytes_K} = $self->_calc_K;         # K = HASH( PAD(S) )
+  my $M1 = $self->_calc_M1;                  # M1 = HASH( HASH(N) XOR HASH(PAD(g)) | HASH(I) | s | PAD(A) | PAD(B) | K )
   return 0 unless $Bytes_M1 eq $M1;
   $self->{Bytes_M1} = $Bytes_M1;
   return 1;
@@ -263,7 +267,7 @@ sub server_verify_M1 {
 
 sub server_compute_M2 {
   my $self = shift;
-  $self->{Bytes_M2}  = $self->_calc_M2;     # M2 = HASH( PAD(A) | M1 | K )
+  $self->{Bytes_M2} = $self->_calc_M2;       # M2 = HASH( PAD(A) | M1 | K )
   return $self->{Bytes_M2};
 }
 
@@ -617,6 +621,12 @@ It tries to use one of the following:
 
 =head1 METHODS
 
+Login and password ($I, $P) can be ASCII strings (without utf8 flag) or raw octects. If you want special
+characters in login and/or password then you have to encode them from Perl's internal from like this:
+C<$I = encode('utf8', $I)> or C<$P = encode('utf8', $P)>
+
+All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are raw octects (no BigInts no strings with utf8 flag).
+
 =over
 
 =item * new
@@ -630,6 +640,8 @@ It tries to use one of the following:
 =item * client_init
 
  $srp->client_init($I, $P, $s, $B);
+ #or
+ $srp->client_init($I, $P, $s, $B, $A, $a);
 
 =item * client_compute_A
 
@@ -685,7 +697,9 @@ It tries to use one of the following:
 
 =item * validate_A_or_B
 
- my $valid = validate_A_or_B($A_or_B);
+ my $valid = validate_A_or_B($A);
+ #or
+ my $valid = validate_A_or_B($B);
 
 =item * random_bytes
 
