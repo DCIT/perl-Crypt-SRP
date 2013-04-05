@@ -1,5 +1,9 @@
 Changes for Crypt::SRP
 
+0.002   2013/04/xxx
+        - no dependency on Digest::SHA1
+        - more reliable sample implementation of client/server
+
 0.002   2013/04/05
         - sample srp_client.pl + srp_server.pl (+ necessary changes)
 
