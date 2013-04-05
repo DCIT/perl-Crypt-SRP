@@ -6,9 +6,8 @@ use Mojo::UserAgent;
 use Mojo::Util qw(b64_encode b64_decode);
 use Crypt::SRP;
 
-
 my $ua = Mojo::UserAgent->new;
-$ua->http_proxy('http://127.0.0.1:8081');
+#$ua->http_proxy('http://127.0.0.1:8081');
 
 my $base_url = 'http://127.0.0.1:3000';
 
