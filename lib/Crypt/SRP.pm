@@ -5,13 +5,11 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 $VERSION = eval $VERSION;
 
 use Math::BigInt try => 'GMP';
-
 use Digest::SHA;
-use Digest::SHA1; #XXX-FIXME just workaround as Digest::SHA is buggy when used together with Mojolicious!!!!
 
 ### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
@@ -338,8 +336,8 @@ sub random_bytes {
 
 sub _HASH {
   my ($self, $data) = @_;
-  return Digest::SHA1::sha1($data)   if $self->{HASH} eq 'SHA1';   #XXX-TEMPORARY-HACK
-  #return Digest::SHA::sha1($data)   if $self->{HASH} eq 'SHA1';   #XXX-FIXME just workaround as Digest::SHA is buggy when used together with Mojolicious!!!!
+  utf8::downgrade($data); #XXX-FIXME just workaround as Digest::SHA is buggy when UTF8 flag is on
+  return Digest::SHA::sha1($data)   if $self->{HASH} eq 'SHA1'; 
   return Digest::SHA::sha256($data) if $self->{HASH} eq 'SHA256';
   return Digest::SHA::sha384($data) if $self->{HASH} eq 'SHA384';
   return Digest::SHA::sha512($data) if $self->{HASH} eq 'SHA512';
