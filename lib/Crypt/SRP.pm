@@ -7,6 +7,7 @@ use warnings;
 
 our $VERSION = '0.003';
 $VERSION = eval $VERSION;
+#BEWARE update also version in URLs mentioned in documentation below
 
 use Math::BigInt try => 'GMP';
 use Digest::SHA;
@@ -513,23 +514,7 @@ Crypt::SRP - Secure Remote Protocol (SRP6a)
 
 =head1 SYNOPSIS
 
-Example 1 - creating a new user and his/her password verifier:
-
- ###CLIENT###
- my $I = '...'; # login entered by user
- my $P = '...'; # password entered by user
- my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
- my ($s, $v) = $cli->compute_verifier_and_salt($I, $P);
-
- #  request to server:  ---> /auth/create_user [$I, $s, $v] --->
-
-                           ###SERVER###
-                           my %USERS;  # sort of "user database"
-                           die "user already exists" unless $USERS{$I};
-                           $USERS{$I}->{salt} = $s;
-                           $USERS{$I}->{verifier} = $v;
-
-Example 2 - SRP login handshake:
+Example 1 - SRP login handshake:
 
  ###CLIENT###
  my $I = '...'; # login entered by user
@@ -585,6 +570,26 @@ Example 2 - SRP login handshake:
    print "ERROR";
  }
 
+Example 2 - creating a new user and his/her password verifier:
+
+ ###CLIENT###
+ my $I = '...'; # login entered by user
+ my $P = '...'; # password entered by user
+ my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
+ my ($s, $v) = $cli->compute_verifier_and_salt($I, $P);
+
+ #  request to server:  ---> /auth/create_user [$I, $s, $v] --->
+
+                           ###SERVER###
+                           my %USERS;  # sort of "user database"
+                           die "user already exists" unless $USERS{$I};
+                           $USERS{$I}->{salt} = $s;
+                           $USERS{$I}->{verifier} = $v;
+
+Working sample implementation of SRP authentication on client and server side is available in C<examples>
+subdirectory (L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.003/examples/srp_server.pl>,
+L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.003/examples/srp_client.pl>).
+
 =head1 DESCRIPTION
 
 More info about SRP protocol:
@@ -601,11 +606,11 @@ More info about SRP protocol:
 
 This module implements SRP version 6a.
 
-B<IMPORTANT:> This module performs some big integer arithmetics via L<Math::BigInt>.
+B<IMPORTANT:> This module performs some big integer arithmetic via L<Math::BigInt>.
 From performance reasons it is recommended to install L<Math::BigInt::GMP>.
 
-B<IMPORTANT:> This module needs some cryptographically strong random number generator.
-It tries to use one of the following:
+B<IMPORTANT:> This module needs a cryptographically strong random
+number generator. It tries to use one of the following:
 
 =over
 
@@ -617,17 +622,17 @@ It tries to use one of the following:
 
 =item * L<Bytes::Random::Secure> - random_bytes()
 
-=item * As an B<unsecure> fallback it uses buil-in rand()
+=item * As an B<unsecure> fallback it uses built-in rand()
 
 =back
 
 =head1 METHODS
 
-Login and password ($I, $P) can be ASCII strings (without utf8 flag) or raw octects. If you want special
+Login and password ($I, $P) can be ASCII strings (without utf8 flag) or raw octets. If you want special
 characters in login and/or password then you have to encode them from Perl's internal from like this:
 C<$I = encode('utf8', $I)> or C<$P = encode('utf8', $P)>
 
-All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are raw octects (no BigInts no strings with utf8 flag).
+All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are raw octets (no BigInts no strings with utf8 flag).
 
 =over
 

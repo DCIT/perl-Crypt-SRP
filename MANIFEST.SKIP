@@ -18,6 +18,7 @@
 
 # Avoid temp and backup files.
 \.old$
+\.tmp$
 \.bak$
 \.crt$
 \.key$
