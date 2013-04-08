@@ -9,6 +9,7 @@ sub SRP_handshake {
 
   my $group   = $args{group};   # e.g. 'RFC5054-1024bit';
   my $hash    = $args{hash};    # e.g. 'SHA1';
+  my $interleaved = $args{interleaved};    # 1 or undef;
   my $Bytes_I = $args{Bytes_I}; # e.g. 'alice';
   my $Bytes_P = $args{Bytes_P}; # e.g. 'password123';
 
@@ -20,14 +21,14 @@ sub SRP_handshake {
   my $Bytes_v;
 
   if ($Bytes_s) {
-    $Bytes_v = Crypt::SRP->new($group, $hash)->compute_verifier($Bytes_I, $Bytes_P, $Bytes_s);
+    $Bytes_v = Crypt::SRP->new($group, $hash, $interleaved)->compute_verifier($Bytes_I, $Bytes_P, $Bytes_s);
   }
   else {
-    ($Bytes_s, $Bytes_v) = Crypt::SRP->new($group, $hash)->compute_verifier_and_salt($Bytes_I, $Bytes_P);
+    ($Bytes_s, $Bytes_v) = Crypt::SRP->new($group, $hash, $interleaved)->compute_verifier_and_salt($Bytes_I, $Bytes_P);
   }
 
   ###CLIENT:
-  my $client = Crypt::SRP->new($group, $hash);
+  my $client = Crypt::SRP->new($group, $hash, $interleaved);
   if (defined $Hex_a) {
     $Hex_a = "0x$Hex_a" unless $Hex_a =~ /^0x/;
     $client->{predefined_a} = Math::BigInt->from_hex($Hex_a);
@@ -37,7 +38,7 @@ sub SRP_handshake {
   # client -[$Bytes_I, $Bytes_A]---> server #
 
   ###SERVER:
-  my $server1 = Crypt::SRP->new($group, $hash);
+  my $server1 = Crypt::SRP->new($group, $hash, $interleaved);
   $server1->server_init($Bytes_I, $Bytes_v, $Bytes_s);
   if (defined $Hex_b) {
     $Hex_b = "0x$Hex_b" unless $Hex_b =~ /^0x/;
@@ -54,7 +55,7 @@ sub SRP_handshake {
   # client -[$Bytes_M1]--> server #
 
   ###SERVER:
-  my $server2 = Crypt::SRP->new($group, $hash);
+  my $server2 = Crypt::SRP->new($group, $hash, $interleaved);
   $server2->server_init($Bytes_I, $Bytes_v, $Bytes_s, $Bytes_A, $Bytes_B, $Bytes_b);
   my $M1_match = $server2->server_verify_M1($Bytes_M1);
   my $Bytes_M2 = $server2->server_compute_M2;
@@ -99,6 +100,7 @@ sub SRP_handshake {
 my $srp_data = SRP_handshake(
         group   => 'RFC5054-1024bit',
         hash    => 'SHA1',
+        interleaved => 0,
         Bytes_I => "alice",
         Bytes_P => "password123",
         Bytes_s => pack('H*', 'BEB25379D1A8581EB5A727673A2441EE'),
@@ -147,8 +149,8 @@ is(unpack('H*', $srp_data->{S}),  'b0dc82babcf30674ae450c0287745e7990a3381f63b38
                                   '3cd67fc88a2f39a4be5bec4ec0a3212dc346d7e474b29ede8a469ffeca686e5a', 'test S');
 
 #K, M1, M2 are not a part of test vector from http://tools.ietf.org/html/rfc5054#appendix-B
-is(unpack('H*', $srp_data->{K}),  'ef9996ac65a4619257a36c677e0ba4d68f9ff153', 'test K');
-is(unpack('H*', $srp_data->{M1}), 'b813b11ccfa9fdfa11b7b5aa8c3bae09f67e6103', 'test M1');
-is(unpack('H*', $srp_data->{M2}), 'd4c0da143d57f47485e1a71da92202f582333960', 'test M2');
+is(unpack('H*', $srp_data->{K}),  '017eefa1cefc5c2e626e21598987f31e0f1b11bb', 'test K');
+is(unpack('H*', $srp_data->{M1}), '62c71b289cb22a034b405667e1541202ce5d8e03', 'test M1');
+is(unpack('H*', $srp_data->{M2}), 'b475d7f2d75ce9537748005483e5d326048b59e9', 'test M2');
 
 done_testing();

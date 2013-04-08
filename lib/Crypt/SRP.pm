@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 $VERSION = eval $VERSION;
 #BEWARE update also version in URLs mentioned in documentation below
 
@@ -175,7 +175,7 @@ use constant predefined_groups => {
 ### class constructor
 
 sub new {
-  my ($class, $group_params, $hash) = @_;
+  my ($class, $group_params, $hash, $interleaved) = @_;
   my $self = bless {}, $class;
 
   # setup N and g values
@@ -193,6 +193,7 @@ sub new {
 
   # setup and test hash function
   $self->{HASH} = $hash;
+  $self->{INTERLEAVED} = $interleaved || 0;
   die "FATAL: invalid hash '$hash'" unless defined $self->_HASH("test");
 
   return $self;
@@ -343,11 +344,27 @@ sub random_bytes {
 sub _HASH {
   my ($self, $data) = @_;
   utf8::downgrade($data); #XXX-FIXME just workaround as Digest::SHA is buggy when UTF8 flag is on
-  return Digest::SHA::sha1($data)   if $self->{HASH} eq 'SHA1'; 
+  return Digest::SHA::sha1($data)   if $self->{HASH} eq 'SHA1';
   return Digest::SHA::sha256($data) if $self->{HASH} eq 'SHA256';
   return Digest::SHA::sha384($data) if $self->{HASH} eq 'SHA384';
   return Digest::SHA::sha512($data) if $self->{HASH} eq 'SHA512';
   return undef;
+}
+
+sub _HASH_Interleaved { #implemented according to http://tools.ietf.org/html/rfc2945 (3.1 Interleaved SHA)
+  my ($self, $data) = @_;
+  #we assume no leading zero bytes in $data
+  my @all_bytes = split(//, $data);
+  #if the length of the $data is odd, remove the first byte
+  shift @all_bytes if @all_bytes % 2;
+  my @E = map { $all_bytes[2*($_-1)] }   1 .. @all_bytes/2; # even bytes
+  my @F = map { $all_bytes[2*($_-1)+1] } 1 .. @all_bytes/2; # odd bytes
+  my @G = split //, $self->_HASH(@E);
+  my @H = split //, $self->_HASH(@F);
+  my @result;
+  $result[2*$_]   = $G[$_] for 0 .. $#G;
+  $result[2*$_+1] = $H[$_] for 0 .. $#H;
+  return join('', @result);
 }
 
 sub _PAD {
@@ -424,8 +441,9 @@ sub _calc_S_server {
 sub _calc_K {
   my $self = shift;
   return undef unless defined $self->{Num_S};
-  # K = HASH( PAD(S) )
-  my $Bytes_K = $self->_HASH($self->_PAD($self->{Num_S}));
+  my $Bytes_S = _bignum2bytes($self->{Num_S});
+  # K = HASH(S)  or  K = HASH_Interleaved(S)
+  my $Bytes_K = $self->{INTERLEAVED} ? $self->_HASH_Interleaved($Bytes_S) : $self->_HASH($Bytes_S);
   return $Bytes_K
 }
 
@@ -587,8 +605,8 @@ Example 2 - creating a new user and his/her password verifier:
                            $USERS{$I}->{verifier} = $v;
 
 Working sample implementation of SRP authentication on client and server side is available in C<examples>
-subdirectory (L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.003/examples/srp_server.pl>,
-L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.003/examples/srp_client.pl>).
+subdirectory (L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.004/examples/srp_server.pl>,
+L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.004/examples/srp_client.pl>).
 
 =head1 DESCRIPTION
 
@@ -638,11 +656,14 @@ All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are raw oct
 
 =item * new
 
- my $srp = Crypt::SRP->new($group, $hash);
+ my $srp = Crypt::SRP->new($group, $hash, $interleaved);
  # $group ... 'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
  #            'RFC5054-3072bit' or 'RFC5054-4096bit' or 'RFC5054-6144bit' or
- #            'RFC5054-8192bit'
+ #            'RFC5054-8192bit' see rfc5054 (appendix A)
  # $hash  ... 'SHA1' or 'SHA256' or 'SHA384' or 'SHA512'
+ # $interleaved ... (optional, DEFAULT = 0) indicates whether the final shared 
+ #                  secret K will be computed as SHAx(S) or SHAx_Interleaved(S)
+ #                  see rfc2945 (3.1 Interleaved SHA)
 
 =item * client_init
 

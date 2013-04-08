@@ -29,6 +29,7 @@ for (@test_set) {
   warn "a = ", unpack("H*", substr($a,0,16)), "... len=", length($a), "\n";
   warn ">> gonna send request 1\n\n";
   my $tx1 = $ua->post("$base_url/auth/srp_step1" => json => {I=>b64_encode($I), A=>b64_encode($A)});
+  $tx1->res->json or warn("invalid response") and next;
 
   warn "# [login=$I] SRP step2\n";
 
@@ -44,6 +45,7 @@ for (@test_set) {
   warn "M1= ", unpack("H*", $M1), "\n";
   warn ">> gonna send request 2\n\n";
   my $tx2 = $ua->post("$base_url/auth/srp_step2" => json => {M1=>b64_encode($M1), token=>b64_encode($token)});
+  $tx2->res->json or warn("invalid response") and next;
 
   warn "# [login=$I] SRP result\n";
 
