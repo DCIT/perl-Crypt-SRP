@@ -1,3 +1,5 @@
+#!/usr/bin/perl
+
 # Copyright (c) 2013 DCIT, a.s. [http://www.dcit.cz] - Miko
 
 use strict;
@@ -46,7 +48,7 @@ post '/auth/srp_step1' => sub {
       warn "b = ", unpack("H*", substr($b,0,16)), "... len=", length($b), "\n";
       my $token = $srv->random_bytes(32);
       $TOKENS{$token} = [$I, $A, $B, $b];
-      return $self->render_json({B=>b64_encode($B), s=>b64_encode($s), token=>b64_encode($token)});
+      return $self->render_json({B=>b64_encode($B,''), s=>b64_encode($s,''), token=>b64_encode($token,'')});
     }
     else {
       # fake response for no-nexisting user
@@ -71,7 +73,7 @@ post '/auth/srp_step2' => sub {
     $srv->server_init($I, $v, $s, $A, $B, $b);
     return $self->render_json({status=>'error'}) unless $srv->server_verify_M1($M1);
     $M2 = $srv->server_compute_M2;
-    return $self->render_json({M2=>b64_encode($M2)});
+    return $self->render_json({M2=>b64_encode($M2,'')});
   };
 
 app->start;
