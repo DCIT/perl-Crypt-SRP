@@ -13,12 +13,12 @@ use Math::BigInt try => 'GMP';
 use Digest::SHA;
 use MIME::Base64 qw(encode_base64 decode_base64);
 use Config;
-use Storable qw(freeze thaw);
+use Storable qw(freeze nfreeze thaw);
 
 ### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
 use constant _state_vars  => [ qw(Bytes_I Bytes_K Bytes_M1 Bytes_M2 Bytes_P Bytes_s Num_a Num_A Num_b Num_B Num_k Num_S Num_u Num_v Num_x) ];
-use constant _static_vars => [ qw(HASH INTERLEAVED GROUP N_LENGTH Num_N Num_g) ];
+use constant _static_vars => [ qw(HASH INTERLEAVED GROUP) ];
 
 use constant _predefined_groups => {
     'RFC5054-1024bit' => {
@@ -197,9 +197,9 @@ sub new {
 sub reset {
   my ($self, $group_params, $hash, $interleaved) = @_;
 
-  $self->{HASH} = $hash if $hash;
-  $self->{INTERLEAVED} = $interleaved if $interleaved;
-  $self->{GROUP} = $group_params if $group_params;
+  $self->{HASH} = $hash if defined $hash;
+  $self->{INTERLEAVED} = $interleaved if defined $interleaved;
+  $self->{GROUP} = $group_params if defined $group_params;
 
   delete $self->{$_} for (@{_state_vars()});
 
@@ -242,7 +242,7 @@ sub server_init {
   # do not unformat $Bytes_I
   $self->{Bytes_I} = $Bytes_I;
   $self->{Num_v}   = _bytes2bignum(_unformat($Bytes_v, $format));
-  $self->{Bytes_s} = $Bytes_s;
+  $self->{Bytes_s} = _unformat($Bytes_s, $format);
   #optional params
   $self->{Num_A}   = _bytes2bignum(_unformat($Bytes_A, $format)) if defined $Bytes_A;
   $self->{Num_B}   = _bytes2bignum(_unformat($Bytes_B, $format)) if defined $Bytes_B;
@@ -294,7 +294,7 @@ sub server_fake_B_s {
   $s_len ||= 32;
   # default $nonce should be fixed for repeated invocation on the same machine (in different processes)
   $nonce ||= join(":", @INC, $Config{archname}, $Config{myuname}, $^X, $^V, $<, $(, $ENV{PATH}, $ENV{HOSTNAME}, $ENV{HOME});
-  my $b = _bytes2bignum($self->random_bytes(6)); #XXX-TODO maybe too short
+  my $b = _bytes2bignum($self->random_bytes(6)); #XXX maybe too short
   my $B = _bignum2bytes(Math::BigInt->new($self->{Num_g})->copy->bmodpow($b, $self->{Num_N}));
   my $s = '';
   my $i = 1;
@@ -349,12 +349,22 @@ sub compute_verifier_and_salt {
 }
 
 sub validate_A_or_B {
-  my ($self, $bytes, $format) = @_;
-  $bytes = _unformat($bytes, $format);
-  return 0 unless $bytes && $self->{Num_N};
-  my $num = _bytes2bignum($bytes);
-  return 0 unless $num;
-  return 0 if $num->bmod($self->{Num_N}) == 0; # num % N == 0
+  die "validate_A_or_B is DEPRECATED use server_verify_A or client_verify_B";
+}
+
+sub server_verify_A {
+  my ($self, $Bytes_A, $format) = @_;
+  $Bytes_A = _unformat($Bytes_A, $format);
+  return 0 unless $self->_validate_A_or_B($Bytes_A);
+  $self->{Num_A} = _bytes2bignum($Bytes_A);
+  return 1;
+}
+
+sub client_verify_B {
+  my ($self, $Bytes_B, $format) = @_;
+  $Bytes_B = _unformat($Bytes_B, $format);
+  return 0 unless $self->_validate_A_or_B($Bytes_B);
+  $self->{Num_B} = _bytes2bignum($Bytes_B);
   return 1;
 }
 
@@ -576,6 +586,15 @@ sub _generate_SRP_b {
   $self->_generate_SRP_a_or_b($b_len, $self->{predefined_b});
 }
 
+sub _validate_A_or_B {
+  my ($self, $bytes) = @_;
+  return 0 unless $bytes && $self->{Num_N};
+  my $num = _bytes2bignum($bytes);
+  return 0 unless $num;
+  return 0 if $num->bmod($self->{Num_N}) == 0; # num % N == 0
+  return 1;
+}
+
 ### helper functions - NOT METHODS!!!
 
 sub _bignum2bytes {
@@ -653,7 +672,7 @@ Example 1 - SRP login handshake:
                            my $v = $USERS{$I}->{verifier};
                            my $s = $USERS{$I}->{salt};
                            my $srv = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
-                           return unless $srv->validate_A_or_B($A);
+                           return unless $srv->server_verify_A($A);
                            $srv->server_init($I, $v, $s);
                            my ($B, $b) = $srv->server_compute_B;
                            my $token = $srv->random_bytes(32);
@@ -662,8 +681,8 @@ Example 1 - SRP login handshake:
  #  response[1] from server:  <--- ($B, $s, $token) <---
 
  ###CLIENT###
- return unless $cli->validate_A_or_B($B);
- $cli->client_init($I, $P, $s, $B);
+ return unless $cli->client_verify_B($B);
+ $cli->client_init($I, $P, $s);
  my $M1 = $cli->client_compute_M1;
 
  #  request[2] to server:  ---> /auth/srp_step2 ($M1, $token) --->
@@ -792,6 +811,20 @@ However if you set optional parameter C<$format> to C<'hex'>, C<'base64'> or C<'
 
  $srp->load($serialized_state);
 
+=item * compute_verifier
+
+ my $v = $srp->compute_verifier($I, $P, $s);
+ #or
+ my $v = $srp->compute_verifier($I, $P, $s, $format);
+
+=item * compute_verifier_and_salt
+
+ my ($s, $v) = $srp->compute_verifier_and_salt($I, $P); 
+ #or
+ my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len);
+ #or
+ my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len, $format);
+
 =item * client_init
 
  $srp->client_init($I, $P, $s, $B);
@@ -820,19 +853,11 @@ However if you set optional parameter C<$format> to C<'hex'>, C<'base64'> or C<'
  #or
  my $valid = $srp->client_verify_M2($M2, $format);
 
-=item * compute_verifier
+=item * client_verify_B
 
- my $v = $srp->compute_verifier($I, $P, $s);
+ my $valid = client_verify_B($B);
  #or
- my $v = $srp->compute_verifier($I, $P, $s, $format);
-
-=item * compute_verifier_and_salt
-
- my ($s, $v) = $srp->compute_verifier_and_salt($I, $P); 
- #or
- my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len);
- #or
- my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len, $format);
+ my $valid = client_verify_B($B, $format);
 
 =item * server_init
 
@@ -873,6 +898,12 @@ However if you set optional parameter C<$format> to C<'hex'>, C<'base64'> or C<'
  #or
  my $M2 = $srp->server_compute_M2($format);
 
+=item * server_verify_A
+
+ my $valid = server_verify_A($A);
+ #or
+ my $valid = server_verify_A($A, $format);
+
 =item * get_secret_S
 
  my $S = $srp->get_secret_S();
@@ -884,16 +915,6 @@ However if you set optional parameter C<$format> to C<'hex'>, C<'base64'> or C<'
  my $K = $srp->get_secret_K();
  #or
  my $K = $srp->get_secret_K($format);
-
-=item * validate_A_or_B
-
- my $valid = validate_A_or_B($A);
- #or
- my $valid = validate_A_or_B($B);
- #or
- my $valid = validate_A_or_B($A, $format);
- #or
- my $valid = validate_A_or_B($B, $format);
 
 =item * random_bytes
 
