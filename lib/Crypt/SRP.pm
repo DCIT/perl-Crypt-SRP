@@ -260,7 +260,7 @@ sub server_compute_B {
   $self->{Num_k} = $self->_calc_k;                 # k = HASH(N | PAD(g))
   $self->{Num_B} = $self->_calc_B;                 # B = ( k*v + (g^b % N) ) % N
   my $Bytes_B = _bignum2bytes($self->{Num_B});
-  my $Bytes_b = _bignum2bytes($self->{Num_b})
+  my $Bytes_b = _bignum2bytes($self->{Num_b});
   return (_format($Bytes_B, $format), _format($Bytes_b, $format));
 }
 
