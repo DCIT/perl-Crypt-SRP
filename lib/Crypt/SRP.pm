@@ -349,7 +349,7 @@ sub compute_verifier_and_salt {
 }
 
 sub validate_A_or_B {
-  die "validate_A_or_B is DEPRECATED use server_verify_A or client_verify_B";
+  die "validate_A_or_B is DEPRECATED - use server_verify_A or client_verify_B";
 }
 
 sub server_verify_A {
@@ -729,8 +729,9 @@ Example 2 - creating a new user and his/her password verifier:
                            $USERS{$I}->{verifier} = $v;
 
 Working sample implementation of SRP authentication on client and server side is available in C<examples>
-subdirectory (L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.004/examples/srp_server.pl>,
-L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.004/examples/srp_client.pl>).
+subdirectory: 
+L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.005/examples/srp_server.pl>,
+L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.005/examples/srp_client.pl>.
 
 =head1 DESCRIPTION
 
