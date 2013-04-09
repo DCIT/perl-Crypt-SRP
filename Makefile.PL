@@ -12,5 +12,6 @@ WriteMakefile(
       'Test::More'   => 0,
       'Math::BigInt' => '1.991',
       'Digest::SHA'  => 0,
+      'MIME::Base64' => 0,
     },
 );
