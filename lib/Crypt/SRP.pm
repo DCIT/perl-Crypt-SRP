@@ -12,12 +12,13 @@ $VERSION = eval $VERSION;
 use Math::BigInt try => 'GMP';
 use Digest::SHA;
 use MIME::Base64 qw(encode_base64 decode_base64);
+use Config;
 use Storable qw(freeze thaw);
 
 ### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
-use constant _int_state_vars => [ qw(Bytes_I Bytes_K Bytes_M1 Bytes_M2 Bytes_P Bytes_s Num_a Num_A Num_b Num_B Num_k Num_S Num_u Num_v Num_x) ];
-use constant _int_state_args => [ qw(HASH INTERLEAVED GROUP) ];
+use constant _state_vars  => [ qw(Bytes_I Bytes_K Bytes_M1 Bytes_M2 Bytes_P Bytes_s Num_a Num_A Num_b Num_B Num_k Num_S Num_u Num_v Num_x) ];
+use constant _static_vars => [ qw(HASH INTERLEAVED GROUP N_LENGTH Num_N Num_g) ];
 
 use constant _predefined_groups => {
     'RFC5054-1024bit' => {
@@ -185,7 +186,7 @@ sub new {
 
   $self->{HASH} = $hash || 'SHA256';
   $self->{INTERLEAVED} = $interleaved || 0;
-  $self->{GROUP} = $group_params || 'RFC5054-2048';
+  $self->{GROUP} = $group_params || 'RFC5054-2048bit';
 
   $self->_initialize();
   return $self;
@@ -194,49 +195,58 @@ sub new {
 ### class PUBLIC methods
 
 sub reset {
-  my $self = shift;
-  delete $self->{$_} for (@{_int_state_vars()});
+  my ($self, $group_params, $hash, $interleaved) = @_;
+
+  $self->{HASH} = $hash if $hash;
+  $self->{INTERLEAVED} = $interleaved if $interleaved;
+  $self->{GROUP} = $group_params if $group_params;
+
+  delete $self->{$_} for (@{_state_vars()});
+
+  $self->_initialize();
   return $self;
 }
 
-sub dump_state {
+sub dump {
   my $self = shift;
-  my $state = [ map {$self->{$_}} (@{_int_state_vars()}, @{_int_state_args()}) ];
+  my $state = [ map {$self->{$_}} (@{_state_vars()}, @{_static_vars()}) ];
   return encode_base64(freeze($state), "");
 }
 
-sub load_state {
+sub load {
   my ($self, $state) = @_;
   $self->reset;
   my $s = thaw(decode_base64($state));
-  my @list = (@{_int_state_vars()}, @{_int_state_args()});
+  my @list = (@{_state_vars()}, @{_static_vars()});
   $self->{$list[$_]} = $s->[$_] for 0..$#list;
   $self->_initialize();
   return $self;
 }
 
 sub client_init {
-  my ($self, $Bytes_I, $Bytes_P, $Bytes_s, $Bytes_B, $Bytes_A, $Bytes_a) = @_;
+  my ($self, $Bytes_I, $Bytes_P, $Bytes_s, $Bytes_B, $Bytes_A, $Bytes_a, $format) = @_;
+  # do not unformat $Bytes_I, $Bytes_P
   $self->{Bytes_I} = $Bytes_I;
   $self->{Bytes_P} = $Bytes_P;
-  $self->{Bytes_s} = $Bytes_s;
+  $self->{Bytes_s} = _unformat($Bytes_s, $format);
   $self->{Num_x}   = $self->_calc_x();            # x = HASH(s | HASH(I | ":" | P))
   #optional params
-  $self->{Num_B}   = _bytes2bignum($Bytes_B) if defined $Bytes_B;
-  $self->{Num_A}   = _bytes2bignum($Bytes_A) if defined $Bytes_A;
-  $self->{Num_a}   = _bytes2bignum($Bytes_a) if defined $Bytes_a;
+  $self->{Num_B}   = _bytes2bignum(_unformat($Bytes_B, $format)) if defined $Bytes_B;
+  $self->{Num_A}   = _bytes2bignum(_unformat($Bytes_A, $format)) if defined $Bytes_A;
+  $self->{Num_a}   = _bytes2bignum(_unformat($Bytes_a, $format)) if defined $Bytes_a;
   return $self;
 }
 
 sub server_init {
-  my ($self, $Bytes_I, $Bytes_v, $Bytes_s, $Bytes_A, $Bytes_B, $Bytes_b) = @_;
+  my ($self, $Bytes_I, $Bytes_v, $Bytes_s, $Bytes_A, $Bytes_B, $Bytes_b, $format) = @_;
+  # do not unformat $Bytes_I
   $self->{Bytes_I} = $Bytes_I;
-  $self->{Num_v}   = _bytes2bignum($Bytes_v);
+  $self->{Num_v}   = _bytes2bignum(_unformat($Bytes_v, $format));
   $self->{Bytes_s} = $Bytes_s;
   #optional params
-  $self->{Num_A}   = _bytes2bignum($Bytes_A) if defined $Bytes_A;
-  $self->{Num_B}   = _bytes2bignum($Bytes_B) if defined $Bytes_B;
-  $self->{Num_b}   = _bytes2bignum($Bytes_b) if defined $Bytes_b;
+  $self->{Num_A}   = _bytes2bignum(_unformat($Bytes_A, $format)) if defined $Bytes_A;
+  $self->{Num_B}   = _bytes2bignum(_unformat($Bytes_B, $format)) if defined $Bytes_B;
+  $self->{Num_b}   = _bytes2bignum(_unformat($Bytes_b, $format)) if defined $Bytes_b;
   return $self;
 }
 
@@ -260,10 +270,11 @@ sub client_compute_M1 {
 }
 
 sub client_verify_M2 {
-  my ($self, $Bytes_M2) = @_;
+  my ($self, $Bytes_M2, $format) = @_;
+  $Bytes_M2 = _unformat($Bytes_M2, $format);
   my $M2 = $self->_calc_M2;                  # M2 = HASH( PAD(A) | M1 | K )
   return 0 unless defined $Bytes_M2 && defined $M2 && $Bytes_M2 eq $M2;
-  $self->{Bytes_M2} = $Bytes_M2;
+  $self->{Bytes_M2} = $M2;
   return 1;
 }
 
@@ -278,24 +289,29 @@ sub server_compute_B {
 }
 
 sub server_fake_B_s {
-  my ($I, $s_len, $nonce) = @_;
-  $nonce ||= 'nonce';
+  my ($self, $I, $s_len, $nonce, $format) = @_;
+  return unless $I;
   $s_len ||= 32;
-#XXX-TODO
-  # $b = $self->_generate_SRP_b(32);
-  # $B = g^b % N  nebo $B = bytes2bigint(random)
-  # $s = substr(hmac_sha256($I, $nonce), $s_len);
-  #return ($B, $s)
+  # default $nonce should be fixed for repeated invocation on the same machine (in different processes)
+  $nonce ||= join(":", @INC, $Config{archname}, $Config{myuname}, $^X, $^V, $<, $(, $ENV{PATH}, $ENV{HOSTNAME}, $ENV{HOME});
+  my $b = _bytes2bignum($self->random_bytes(6)); #XXX-TODO maybe too short
+  my $B = _bignum2bytes(Math::BigInt->new($self->{Num_g})->copy->bmodpow($b, $self->{Num_N}));
+  my $s = '';
+  my $i = 1;
+  $s .= Digest::SHA::hmac_sha256($I, $nonce.$i++) while length($s) < $s_len;
+  $s = substr($s, 0, $s_len);
+  return (_format($B, $format), _format($s, $format));
 }
 
 sub server_verify_M1 {
-  my ($self, $Bytes_M1) = @_;
+  my ($self, $Bytes_M1, $format) = @_;
+  $Bytes_M1 = _unformat($Bytes_M1, $format);
   $self->{Num_u}   = $self->_calc_u;         # u = HASH(PAD(A) | PAD(B))
   $self->{Num_S}   = $self->_calc_S_server;  # S = ( (A * ((v^u)%N)) ^ b) % N
   $self->{Bytes_K} = $self->_calc_K;         # K = HASH( PAD(S) )
   my $M1 = $self->_calc_M1;                  # M1 = HASH( HASH(N) XOR HASH(PAD(g)) | HASH(I) | s | PAD(A) | PAD(B) | K )
   return 0 unless $Bytes_M1 eq $M1;
-  $self->{Bytes_M1} = $Bytes_M1;
+  $self->{Bytes_M1} = $M1;
   return 1;
 }
 
@@ -317,12 +333,15 @@ sub get_secret_S {
 
 sub compute_verifier {
   my ($self, $Bytes_I, $Bytes_P, $Bytes_s, $format) = @_;
+  $Bytes_s = _unformat($Bytes_s, $format);
+  # do not unformat $Bytes_I, $Bytes_P
   $self->client_init($Bytes_I, $Bytes_P, $Bytes_s);
   return _format($self->_calc_v, $format);
 }
 
 sub compute_verifier_and_salt {
   my ($self, $Bytes_I, $Bytes_P, $salt_len, $format) = @_;
+  # do not unformat $Bytes_I, $Bytes_P
   $salt_len ||= 32;
   my $Bytes_s = $self->random_bytes($salt_len);
   $self->client_init($Bytes_I, $Bytes_P, $Bytes_s);
@@ -330,7 +349,8 @@ sub compute_verifier_and_salt {
 }
 
 sub validate_A_or_B {
-  my ($self, $bytes) = @_;
+  my ($self, $bytes, $format) = @_;
+  $bytes = _unformat($bytes, $format);
   return 0 unless $bytes && $self->{Num_N};
   my $num = _bytes2bignum($bytes);
   return 0 unless $num;
@@ -575,10 +595,37 @@ sub _bytes2bignum {
 
 sub _format {
   my ($bytes, $format) = @_;
-  return unpack("H*", $bytes) if $format && $format eq 'hex';
-  return encode_base64($bytes, "") if $format && $format =~ /b64|base64/i;
-  return $bytes;
-}  
+  return $bytes unless $format;
+  return unpack("H*", $bytes)      if $format eq 'hex';
+  return encode_base64($bytes, "") if $format eq 'base64';
+  return _base64url_enc($bytes)    if $format eq 'base64url';
+  return undef;
+}
+
+sub _unformat {
+  my ($input, $format) = @_;
+  return $input unless $format;
+  return pack("H*", $input)     if $format eq 'hex';
+  return decode_base64($input)  if $format eq 'base64';
+  return _base64url_dec($input) if $format eq 'base64url';
+  return undef;
+}
+
+# RFC 4648 Base64 URL Safe - https://tools.ietf.org/html/rfc4648#page-7
+sub _base64url_enc {
+    my $data = shift;
+    my $b64 = encode_base64($data, '');
+    $b64 =~ s/=+\z//;
+    $b64 =~ tr[+/][-_];
+    return $b64;
+}
+
+sub _base64url_dec {
+    my $b64 = shift;
+    $b64 =~ tr[-_][+/];
+    $b64 .= '=' while length($b64) % 4;
+    return decode_base64($b64);
+}
 
 1;
 
@@ -709,27 +756,49 @@ characters in login and/or password then you have to encode them from Perl's int
 C<$I = encode('utf8', $I)> or C<$P = encode('utf8', $P)>
 
 All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are raw octets (no BigInts no strings with utf8 flag).
-You specify optional parameter C<$format> which will force conversion of return value(s) into hex or base64.
+However if you set optional parameter C<$format> to C<'hex'>, C<'base64'> or C<'base64url'> SRP related input parameters
+(not C<$I> or C<$P>) are expected in given encoding and return values are coverted into specified encoding.
 
 =over
 
 =item * new
 
+ my $srp = Crypt::SRP->new();
+ #or
  my $srp = Crypt::SRP->new($group, $hash, $interleaved);
- # $group ... 'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
+ # $group ... (optional, DEFAULT='RFC5054-2048bit') 
+ #            'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
  #            'RFC5054-3072bit' or 'RFC5054-4096bit' or 'RFC5054-6144bit' or
  #            'RFC5054-8192bit' see rfc5054 (appendix A)
- # $hash  ... 'SHA1' or 'SHA256' or 'SHA384' or 'SHA512'
- # $interleaved ... (optional, DEFAULT = 0) indicates whether the final shared 
+ # $hash  ... (optional, DEFAULT='SHA256') 
+ #            'SHA1' or 'SHA256' or 'SHA384' or 'SHA512'
+ # $interleaved ... (optional, DEFAULT=0) indicates whether the final shared 
  #                  secret K will be computed as SHAx(S) or SHAx_Interleaved(S)
  #                  see rfc2945 (3.1 Interleaved SHA)
+
+=item * reset
+
+ $srp->reset();
+ #or
+ $srp->reset($group, $hash, $interleaved);  # see new()
+ 
+ # returns $srp (itself)
+
+=item * dump
+
+ my $serialized_state = $srp->dump();
+
+=item * load
+
+ $srp->load($serialized_state);
 
 =item * client_init
 
  $srp->client_init($I, $P, $s, $B);
  #or
- $srp->client_init($I, $P, $s, $B, $A, $a);
- #returns $srp (self)
+ $srp->client_init($I, $P, $s, $B, $A, $a, $format);
+ 
+ # returns $srp (itself)
 
 =item * client_compute_A
 
@@ -737,38 +806,42 @@ You specify optional parameter C<$format> which will force conversion of return 
  #or
  my ($A, $a) = $srp->client_compute_A($a_len);
  #or
- my ($A, $a) = $srp->client_compute_A($a_len, $format); # $format ... 'hex' or 'base64'
+ my ($A, $a) = $srp->client_compute_A($a_len, $format);
 
 =item * client_compute_M1
 
- my $M1 = $srp->client_compute_M1($B)
+ my $M1 = $srp->client_compute_M1($B);
  #or
- my $M1 = $srp->client_compute_M1($B, $format) # $format ... 'hex' or 'base64'
+ my $M1 = $srp->client_compute_M1($B, $format);
 
 =item * client_verify_M2
 
  my $valid = $srp->client_verify_M2($M2);
+ #or
+ my $valid = $srp->client_verify_M2($M2, $format);
 
 =item * compute_verifier
 
- my $v = $srp->compute_verifier($I, $P, $s)
+ my $v = $srp->compute_verifier($I, $P, $s);
  #or
- my $v = $srp->compute_verifier($I, $P, $s, $format) # $format ... 'hex' or 'base64'
+ my $v = $srp->compute_verifier($I, $P, $s, $format);
 
 =item * compute_verifier_and_salt
 
  my ($s, $v) = $srp->compute_verifier_and_salt($I, $P); 
  #or
- my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len)
+ my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len);
  #or
- my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len, $format) # $format ... 'hex' or 'base64'
+ my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len, $format);
 
 =item * server_init
 
  $srp->server_init($I, $v, $s);
  #or
  $srp->server_init($I, $v, $s, $A, $B, $b);
- #returns $srp (self)
+ #or
+ $srp->server_init($I, $v, $s, $A, $B, $b, $format);
+ # returns $srp (itself)
 
 =item * server_compute_B
 
@@ -776,35 +849,51 @@ You specify optional parameter C<$format> which will force conversion of return 
  #or
  my ($B, $b) = $srp->server_compute_B($b_len);
  #or
- my ($B, $b) = $srp->server_compute_B($b_len, $format); # $format ... 'hex' or 'base64'
+ my ($B, $b) = $srp->server_compute_B($b_len, $format);
+
+=item * server_fake_B_s
+
+ my ($B, $s) = $srp->server_fake_B_s($I);
+ #or
+ my ($B, $s) = $srp->server_fake_B_s($I, $s_len);
+ #or
+ my ($B, $s) = $srp->server_fake_B_s($I, $s_len, $nonce);
+ #or
+ my ($B, $s) = $srp->server_fake_B_s($I, $s_len, $nonce, $format);
 
 =item * server_verify_M1
 
  my $valid = $srp->server_verify_M1($M1);
+ #or
+ my $valid = $srp->server_verify_M1($M1, $format);
 
 =item * server_compute_M2
 
  my $M2 = $srp->server_compute_M2();
  #or
- my $M2 = $srp->server_compute_M2($format); # $format ... 'hex' or 'base64'
+ my $M2 = $srp->server_compute_M2($format);
 
 =item * get_secret_S
 
  my $S = $srp->get_secret_S();
  #or
- my $S = $srp->get_secret_S($format); # $format ... 'hex' or 'base64'
+ my $S = $srp->get_secret_S($format);
 
 =item * get_secret_K
 
  my $K = $srp->get_secret_K();
  #or
- my $K = $srp->get_secret_K($format); # $format ... 'hex' or 'base64'
+ my $K = $srp->get_secret_K($format);
 
 =item * validate_A_or_B
 
  my $valid = validate_A_or_B($A);
  #or
  my $valid = validate_A_or_B($B);
+ #or
+ my $valid = validate_A_or_B($A, $format);
+ #or
+ my $valid = validate_A_or_B($B, $format);
 
 =item * random_bytes
 
@@ -812,7 +901,7 @@ You specify optional parameter C<$format> which will force conversion of return 
  #or
  my $rand = $srp->random_bytes($len);
  #or
- my $rand = $srp->random_bytes($len, $format); # $format ... 'hex' or 'base64'
+ my $rand = $srp->random_bytes($len, $format);
 
 =back
 

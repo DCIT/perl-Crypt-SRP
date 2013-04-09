@@ -1,8 +1,9 @@
 Changes for Crypt::SRP
 
 0.005   2013/04/09
+        - added reset(), dump(), load(), server_fake_B_s()
         - server_init() and client_init() return $self
-        - introducing optional parameter $format (handy for hex/base64 conversion)
+        - introducing optional parameter $format
 
 0.004   2013/04/08
         - fixed bug in _calc_K
