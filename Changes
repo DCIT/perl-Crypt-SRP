@@ -1,5 +1,9 @@
 Changes for Crypt::SRP
 
+0.005   2013/04/09
+        - server_init() and client_init() return $self
+        - introducing optional parameter $format (handy for hex/base64 conversion)
+
 0.004   2013/04/08
         - fixed bug in _calc_K
         - new's param $interleaved
