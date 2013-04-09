@@ -11,11 +11,15 @@ $VERSION = eval $VERSION;
 
 use Math::BigInt try => 'GMP';
 use Digest::SHA;
-use MIME::Base64 qw(encode_base64);
+use MIME::Base64 qw(encode_base64 decode_base64);
+use Storable qw(freeze thaw);
 
 ### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
-use constant predefined_groups => {
+use constant _int_state_vars => [ qw(Bytes_I Bytes_K Bytes_M1 Bytes_M2 Bytes_P Bytes_s Num_a Num_A Num_b Num_B Num_k Num_S Num_u Num_v Num_x) ];
+use constant _int_state_args => [ qw(HASH INTERLEAVED GROUP) ];
+
+use constant _predefined_groups => {
     'RFC5054-1024bit' => {
         g => 2,
         N => q[
@@ -179,28 +183,37 @@ sub new {
   my ($class, $group_params, $hash, $interleaved) = @_;
   my $self = bless {}, $class;
 
-  # setup N and g values
-  if ($group_params =~ /RFC5054-(1024|1536|2048|3072|4096|6144|8192)bit$/) {
-    my $str = predefined_groups->{$group_params}->{N};
-    $str =~ s/[\r\n\s]*//sg;
-    $str = "0x$str" unless $str =~ /^0x/;
-    $self->{Num_N} = Math::BigInt->from_hex($str);
-    $self->{Num_g} = Math::BigInt->new(predefined_groups->{$group_params}->{g});
-    $self->{N_LENGTH} = length(_bignum2bytes($self->{Num_N}));
-  }
-  else {
-    die "FATAL: invalid group_params '$group_params'";
-  }
-
-  # setup and test hash function
-  $self->{HASH} = $hash;
+  $self->{HASH} = $hash || 'SHA256';
   $self->{INTERLEAVED} = $interleaved || 0;
-  die "FATAL: invalid hash '$hash'" unless defined $self->_HASH("test");
+  $self->{GROUP} = $group_params || 'RFC5054-2048';
 
+  $self->_initialize();
   return $self;
 }
 
 ### class PUBLIC methods
+
+sub reset {
+  my $self = shift;
+  delete $self->{$_} for (@{_int_state_vars()});
+  return $self;
+}
+
+sub dump_state {
+  my $self = shift;
+  my $state = [ map {$self->{$_}} (@{_int_state_vars()}, @{_int_state_args()}) ];
+  return encode_base64(freeze($state), "");
+}
+
+sub load_state {
+  my ($self, $state) = @_;
+  $self->reset;
+  my $s = thaw(decode_base64($state));
+  my @list = (@{_int_state_vars()}, @{_int_state_args()});
+  $self->{$list[$_]} = $s->[$_] for 0..$#list;
+  $self->_initialize();
+  return $self;
+}
 
 sub client_init {
   my ($self, $Bytes_I, $Bytes_P, $Bytes_s, $Bytes_B, $Bytes_A, $Bytes_a) = @_;
@@ -262,6 +275,17 @@ sub server_compute_B {
   my $Bytes_B = _bignum2bytes($self->{Num_B});
   my $Bytes_b = _bignum2bytes($self->{Num_b});
   return (_format($Bytes_B, $format), _format($Bytes_b, $format));
+}
+
+sub server_fake_B_s {
+  my ($I, $s_len, $nonce) = @_;
+  $nonce ||= 'nonce';
+  $s_len ||= 32;
+#XXX-TODO
+  # $b = $self->_generate_SRP_b(32);
+  # $B = g^b % N  nebo $B = bytes2bigint(random)
+  # $s = substr(hmac_sha256($I, $nonce), $s_len);
+  #return ($B, $s)
 }
 
 sub server_verify_M1 {
@@ -347,6 +371,26 @@ sub random_bytes {
 }
 
 ### class PRIVATE methods
+
+sub _initialize {
+  my $self = shift;
+
+  # setup N and g values
+  if ($self->{GROUP} =~ /RFC5054-(1024|1536|2048|3072|4096|6144|8192)bit$/) {
+    my $str = _predefined_groups->{$self->{GROUP}}->{N};
+    $str =~ s/[\r\n\s]*//sg;
+    $str = "0x$str" unless $str =~ /^0x/;
+    $self->{Num_N} = Math::BigInt->from_hex($str);
+    $self->{Num_g} = Math::BigInt->new(_predefined_groups->{$self->{GROUP}}->{g});
+    $self->{N_LENGTH} = length(_bignum2bytes($self->{Num_N}));
+  }
+  else {
+    die "FATAL: invalid group_params '$self->{GROUP}'";
+  }
+
+  # test hash function
+  die "FATAL: invalid hash '$self->{HASH}'" unless defined $self->_HASH("test");
+}
 
 sub _HASH {
   my ($self, $data) = @_;
