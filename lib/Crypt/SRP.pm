@@ -13,7 +13,7 @@ use Math::BigInt try => 'GMP';
 use Digest::SHA;
 use MIME::Base64 qw(encode_base64 decode_base64);
 use Config;
-use Storable qw(freeze nfreeze thaw);
+use Storable qw(nfreeze thaw);
 
 ### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
