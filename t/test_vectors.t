@@ -153,4 +153,10 @@ is(unpack('H*', $srp_data->{K}),  '017eefa1cefc5c2e626e21598987f31e0f1b11bb', 't
 is(unpack('H*', $srp_data->{M1}), '62c71b289cb22a034b405667e1541202ce5d8e03', 'test M1');
 is(unpack('H*', $srp_data->{M2}), 'b475d7f2d75ce9537748005483e5d326048b59e9', 'test M2');
 
+### other tests
+
+is( Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 0, 'hex')->compute_verifier('alice', 'password123', 'beb25379d1a8581eb5a727673a2441ee'), 
+    '45acaca893ab3dfce07f22d7741df1b07b3c25b1c3c31999eac22f6a9187860fe49e2d9ddc344fc802a3a988ef178faae0c341771ee700b50ccc75cfe8f52a04b65dffe3eb4ff9ddc2cc8b81c2c4ac63f946a8d4c6364f8e61dbda2c73dad2d6224adc3f911711c8b71f42af9b479d7986749595c2053d384150b01fbde60bde', 
+    'verifier test1');
+
 done_testing();

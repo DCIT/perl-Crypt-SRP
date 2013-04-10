@@ -24,9 +24,9 @@ for (@test_set) {
   warn "#####################\n";
   warn "# [login=$I] SRP step1\n";
 
-  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
+  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 0, $fmt);
   #$cli->{predefined_a} = Math::BigInt->from_hex('60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393'); #DEBUG-ONLY
-  my ($A, $a) = $cli->client_compute_A(32, $fmt);
+  my ($A, $a) = $cli->client_compute_A(32);
   warn "I = $I\n";
   warn "P = $P\n";
   warn "A = ", substr($A,0,30), "..\n";
@@ -40,8 +40,8 @@ for (@test_set) {
   my $s = $tx1->res->json->{s};
   my $B = $tx1->res->json->{B};  
   my $token = $tx1->res->json->{token};
-  $cli->client_verify_B($B, $fmt) or warn("invalid B") and next;
-  $cli->client_init($I, $P, $s, undef, undef, undef, $fmt);
+  $cli->client_verify_B($B) or warn("invalid B") and next;
+  $cli->client_init($I, $P, $s);
   my $M1 = $cli->client_compute_M1($fmt);
   warn "token = $token\n";
   warn "s = $s\n";
@@ -55,7 +55,7 @@ for (@test_set) {
 
   my $M2 = $tx2->res->json->{M2};
   warn "M2= $M2\n" if $M2;
-  if ($M2 && $cli->client_verify_M2($M2, $fmt)) {
+  if ($M2 && $cli->client_verify_M2($M2)) {
      my $K = $cli->get_secret_K($fmt); # shared secret
      warn "[SUCCESS] K = $K\n\n";
    }

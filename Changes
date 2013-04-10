@@ -1,10 +1,12 @@
 Changes for Crypt::SRP
 
-0.005   2013/04/09
+0.005   2013/04/10
         - added reset(), dump(), load(), server_fake_B_s()
-        - server_init() and client_init() return $self
-        - removed validate_A_or_B; added server_verify_A() + client_verify_B()
-        - introducing optional parameter $format
+        - server_init() and client_init() now return $self
+        - removed validate_A_or_B
+        - added server_verify_A() + client_verify_B()
+        - we support $self->random_bytes and Crypt::SRP->random_bytes
+        - new's param $format
 
 0.004   2013/04/08
         - fixed bug in _calc_K
