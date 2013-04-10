@@ -6,7 +6,7 @@ Changes for Crypt::SRP
         - removed validate_A_or_B
         - added server_verify_A() + client_verify_B()
         - we support $self->random_bytes and Crypt::SRP->random_bytes
-        - new's param $format
+        - new's param $format + $default_salt_len
 
 0.004   2013/04/08
         - fixed bug in _calc_K

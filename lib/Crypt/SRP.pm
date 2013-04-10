@@ -18,7 +18,7 @@ use Storable qw(freeze nfreeze thaw);
 ### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
 use constant _state_vars  => [ qw(Bytes_I Bytes_K Bytes_M1 Bytes_M2 Bytes_P Bytes_s Num_a Num_A Num_b Num_B Num_k Num_S Num_u Num_v Num_x) ];
-use constant _static_vars => [ qw(HASH INTERLEAVED GROUP FORMAT) ];
+use constant _static_vars => [ qw(HASH INTERLEAVED GROUP FORMAT SALT_LEN) ];
 
 use constant _predefined_groups => {
     'RFC5054-1024bit' => {
@@ -181,13 +181,14 @@ use constant _predefined_groups => {
 ### class constructor
 
 sub new {
-  my ($class, $group_params, $hash, $interleaved, $format) = @_;
+  my ($class, $group_params, $hash, $interleaved, $format, $default_salt_len) = @_;
   my $self = bless {}, $class;
 
   $self->{HASH} = $hash || 'SHA256';
   $self->{INTERLEAVED} = $interleaved || 0;
   $self->{GROUP} = $group_params || 'RFC5054-2048bit';
   $self->{FORMAT} = $format || 'raw';
+  $self->{SALT_LEN} = $default_salt_len || 32;
 
   $self->_initialize();
   return $self;
@@ -196,12 +197,13 @@ sub new {
 ### class PUBLIC methods
 
 sub reset {
-  my ($self, $group_params, $hash, $interleaved, $format) = @_;
+  my ($self, $group_params, $hash, $interleaved, $format, $default_salt_len) = @_;
 
   $self->{HASH} = $hash if defined $hash;
   $self->{INTERLEAVED} = $interleaved if defined $interleaved;
   $self->{GROUP} = $group_params if defined $group_params;
   $self->{FORMAT} = $format if defined $format;
+  $self->{SALT_LEN} = $default_salt_len if defined $default_salt_len;
 
   delete $self->{$_} for (@{_state_vars()});
 
@@ -291,9 +293,9 @@ sub server_compute_B {
 }
 
 sub server_fake_B_s {
-  my ($self, $I, $s_len, $nonce) = @_;
+  my ($self, $I, $nonce, $s_len) = @_;
   return unless $I;
-  $s_len ||= 32;
+  $s_len ||= $self->{SALT_LEN};
   # default $nonce should be fixed for repeated invocation on the same machine (in different processes)
   $nonce ||= join(":", @INC, $Config{archname}, $Config{myuname}, $^X, $^V, $<, $(, $ENV{PATH}, $ENV{HOSTNAME}, $ENV{HOME});
   my $b = _bytes2bignum(_random_bytes(6)); #XXX maybe too short
@@ -344,7 +346,7 @@ sub compute_verifier {
 sub compute_verifier_and_salt {
   my ($self, $Bytes_I, $Bytes_P, $salt_len) = @_;
   # do not unformat $Bytes_I, $Bytes_P
-  $salt_len ||= 32;
+  $salt_len ||= $self->{SALT_LEN};
   my $Bytes_s = _random_bytes($salt_len);
   $self->client_init($Bytes_I, $Bytes_P, $self->_format($Bytes_s));
   return ($self->_format($Bytes_s), $self->_format($self->_calc_v));
@@ -392,6 +394,7 @@ sub _initialize {
 
   # test hash function
   die "FATAL: invalid hash '$self->{HASH}'" unless defined $self->_HASH("test");
+  return $self;
 }
 
 sub _HASH {
@@ -589,7 +592,7 @@ sub _random_bytes {
     $rv = Crypt::Random::makerandom_octet(Length=>$length);
   }
   elsif (eval {require Bytes::Random::Secure}) {
-    $rv = Bytes::Random::Secure::random_bytes(32);
+    $rv = Bytes::Random::Secure::random_bytes($length);
   }
 
   if (!defined $rv)  {
@@ -793,7 +796,7 @@ the same enconding as well.
 
  my $srp = Crypt::SRP->new();
  #or
- my $srp = Crypt::SRP->new($group, $hash, $interleaved);
+ my $srp = Crypt::SRP->new($group, $hash, $interleaved, $format, $default_salt_len);
  # $group ... (optional, DEFAULT='RFC5054-2048bit') 
  #            'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
  #            'RFC5054-3072bit' or 'RFC5054-4096bit' or 'RFC5054-6144bit' or
@@ -803,13 +806,16 @@ the same enconding as well.
  # $interleaved ... (optional, DEFAULT=0) indicates whether the final shared 
  #                  secret K will be computed as SHAx(S) or SHAx_Interleaved(S)
  #                  see rfc2945 (3.1 Interleaved SHA)
- $ $format ... (optional, DEFAULT='raw') 'raw' or 'hex' or 'base64' or 'base64url'
+ # $format ... (optional, DEFAULT='raw') 
+ #             'raw' or 'hex' or 'base64' or 'base64url'
+ # $default_salt_len ... (optional, DEFAULT=32)
+ #                        default length (in bytes) for generated salt
 
 =item * reset
 
  $srp->reset();
  #or
- $srp->reset($group, $hash, $interleaved);  # see new()
+ $srp->reset($group, $hash, $interleaved, $format, $default_salt_len);  # see new()
  
  # returns $srp (itself)
 
@@ -872,9 +878,9 @@ the same enconding as well.
 
  my ($B, $s) = $srp->server_fake_B_s($I);
  #or
- my ($B, $s) = $srp->server_fake_B_s($I, $s_len);
+ my ($B, $s) = $srp->server_fake_B_s($I, $nonce);
  #or
- my ($B, $s) = $srp->server_fake_B_s($I, $s_len, $nonce);
+ my ($B, $s) = $srp->server_fake_B_s($I, $nonce, $s_len);
 
 =item * server_verify_M1
 

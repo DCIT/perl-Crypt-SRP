@@ -58,7 +58,7 @@ post '/auth/srp_step1' => sub {
     else {
       # fake response for no-nexisting user
       $dump = undef;
-      my ($B, $s) = $srv->server_fake_B_s($I, 32);
+      my ($B, $s) = $srv->server_fake_B_s($I);
       return $self->render_json({B=>$B, s=>$s, token=>$token});
     }
   };
