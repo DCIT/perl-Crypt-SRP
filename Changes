@@ -1,5 +1,9 @@
 Changes for Crypt::SRP
 
+
+0.006   2013/04/10
+        - fix: nfreeze -> freeze
+
 0.005   2013/04/10
         - added reset(), dump(), load(), server_fake_B_s()
         - server_init() and client_init() now return $self
