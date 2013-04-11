@@ -3,8 +3,8 @@ Changes for Crypt::SRP
 0.006   2013/04/11
         - ($s, $v)=compute_verifier_and_salt
           >>> ($v,$s)=compute_verifier_and_salt
-        - new($group, $hash, $format, $interleaved, $default_salt_len)
-          >>> new($group, $hash, $format, $default_salt_len, $interleaved)
+        - new($group, $hash, $interleaved, $format, $default_salt_len)
+          >>> new($group, $hash, $format, $interleaved, $default_salt_len)
         - added server_client.t
 
 0.005   2013/04/10

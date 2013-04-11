@@ -181,10 +181,10 @@ use constant _predefined_groups => {
 ### class constructor
 
 sub new {
-  my ($class, $group_params, $hash, $format, $interleaved, $default_salt_len) = @_;
+  my ($class, $group, $hash, $format, $interleaved, $default_salt_len) = @_;
   my $self = bless {}, $class;
 
-  $self->{GROUP} = $group_params || 'RFC5054-2048bit';
+  $self->{GROUP} = $group || 'RFC5054-2048bit';
   $self->{HASH} = $hash || 'SHA256';
   $self->{FORMAT} = $format || 'raw';
   $self->{INTERLEAVED} = $interleaved || 0;
@@ -197,9 +197,9 @@ sub new {
 ### class PUBLIC methods
 
 sub reset {
-  my ($self, $group_params, $hash, $format, $default_salt_len, $interleaved) = @_;
+  my ($self, $group, $hash, $format, $interleaved, $default_salt_len) = @_;
 
-  $self->{GROUP} = $group_params if defined $group_params;
+  $self->{GROUP} = $group if defined $group;
   $self->{HASH} = $hash if defined $hash;
   $self->{FORMAT} = $format if defined $format;
   $self->{INTERLEAVED} = $interleaved if defined $interleaved;
@@ -796,7 +796,7 @@ the same enconding as well.
 
  my $srp = Crypt::SRP->new();
  #or
- my $srp = Crypt::SRP->new($group, $hash, $format, $default_salt_len, $interleaved);
+ my $srp = Crypt::SRP->new($group, $hash, $format, $interleaved, $default_salt_len);
  # $group ... (optional, DEFAULT='RFC5054-2048bit') 
  #            'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
  #            'RFC5054-3072bit' or 'RFC5054-4096bit' or 'RFC5054-6144bit' or
@@ -815,7 +815,7 @@ the same enconding as well.
 
  $srp->reset();
  #or
- $srp->reset($group, $hash, $format, $default_salt_len, $interleaved);  # see new()
+ $srp->reset($group, $hash, $format, $interleaved, $default_salt_len);  # see new()
  
  # returns $srp (itself)
 
