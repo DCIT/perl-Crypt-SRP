@@ -13,7 +13,7 @@ use Math::BigInt try => 'GMP';
 use Digest::SHA;
 use MIME::Base64 qw(encode_base64 decode_base64);
 use Config;
-use Storable qw(freeze thaw);
+use Storable qw(nfreeze thaw);
 
 ### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
@@ -214,7 +214,7 @@ sub reset {
 sub dump {
   my $self = shift;
   my $state = [ map {$self->{$_}} (@{_state_vars()}, @{_static_vars()}) ];
-  return encode_base64(freeze($state), "");
+  return encode_base64(nfreeze($state), "");
 }
 
 sub load {
@@ -349,7 +349,7 @@ sub compute_verifier_and_salt {
   $salt_len ||= $self->{SALT_LEN};
   my $Bytes_s = _random_bytes($salt_len);
   $self->client_init($Bytes_I, $Bytes_P, $self->_format($Bytes_s));
-  return ($self->_format($Bytes_s), $self->_format($self->_calc_v));
+  return ($self->_format($self->_calc_v), $self->_format($Bytes_s));
 }
 
 sub server_verify_A {
@@ -728,7 +728,7 @@ Example 2 - creating a new user and his/her password verifier:
  my $I = '...'; # login entered by user
  my $P = '...'; # password entered by user
  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1');
- my ($s, $v) = $cli->compute_verifier_and_salt($I, $P);
+ my ($v, $s) = $cli->compute_verifier_and_salt($I, $P);
 
  #  request to server:  ---> /auth/create_user [$I, $s, $v] --->
 
@@ -833,9 +833,9 @@ the same enconding as well.
 
 =item * compute_verifier_and_salt
 
- my ($s, $v) = $srp->compute_verifier_and_salt($I, $P); 
+ my ($v, $s) = $srp->compute_verifier_and_salt($I, $P); 
  #or
- my ($s, $v) = $srp->compute_verifier_and_salt($I, $P, $s_len);
+ my ($v, $s) = $srp->compute_verifier_and_salt($I, $P, $s_len);
 
 =item * client_init
 
@@ -889,9 +889,7 @@ the same enconding as well.
 =item * server_compute_M2
 
  my $M2 = $srp->server_compute_M2();
- #or
- my $M2 = $srp->server_compute_M2($format);
-
+ 
 =item * server_verify_A
 
  my $valid = server_verify_A($A);
@@ -899,14 +897,10 @@ the same enconding as well.
 =item * get_secret_S
 
  my $S = $srp->get_secret_S();
- #or
- my $S = $srp->get_secret_S($format);
 
 =item * get_secret_K
 
  my $K = $srp->get_secret_K();
- #or
- my $K = $srp->get_secret_K($format);
 
 =item * random_bytes
 

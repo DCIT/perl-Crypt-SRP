@@ -24,7 +24,7 @@ sub SRP_handshake {
     $Bytes_v = Crypt::SRP->new($group, $hash, $interleaved)->compute_verifier($Bytes_I, $Bytes_P, $Bytes_s);
   }
   else {
-    ($Bytes_s, $Bytes_v) = Crypt::SRP->new($group, $hash, $interleaved)->compute_verifier_and_salt($Bytes_I, $Bytes_P);
+    ($Bytes_v, $Bytes_s) = Crypt::SRP->new($group, $hash, $interleaved)->compute_verifier_and_salt($Bytes_I, $Bytes_P);
   }
 
   ###CLIENT:

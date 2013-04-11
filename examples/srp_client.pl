@@ -7,12 +7,11 @@ use warnings;
 use Mojo::UserAgent;
 use Crypt::SRP;
 
-my $fmt = 'hex'; # all SRP related parameters are automatically converted from/to hex
-
 my $base_url = 'http://127.0.0.1:3000';
-
 my $ua = Mojo::UserAgent->new;
 #$ua->http_proxy('http://127.0.0.1:8081');
+
+my $fmt = 'hex'; # all SRP related parameters are automatically converted from/to hex
 
 my @test_set = ( ['alice', 'password123'] );
 push @test_set, ["user$_", "secret$_"] for (1..3);
@@ -42,7 +41,7 @@ for (@test_set) {
   my $token = $tx1->res->json->{token};
   $cli->client_verify_B($B) or warn("invalid B") and next;
   $cli->client_init($I, $P, $s);
-  my $M1 = $cli->client_compute_M1($fmt);
+  my $M1 = $cli->client_compute_M1();
   warn "token = $token\n";
   warn "s = $s\n";
   warn "B = ", substr($B,0,30), "..\n";
@@ -56,7 +55,7 @@ for (@test_set) {
   my $M2 = $tx2->res->json->{M2};
   warn "M2= $M2\n" if $M2;
   if ($M2 && $cli->client_verify_M2($M2)) {
-     my $K = $cli->get_secret_K($fmt); # shared secret
+     my $K = $cli->get_secret_K(); # shared secret
      warn "[SUCCESS] K = $K\n\n";
    }
    else {

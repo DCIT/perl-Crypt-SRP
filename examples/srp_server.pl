@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# start like this: ./srp_server.pl daemon
+
 # Copyright (c) 2013 DCIT, a.s. [http://www.dcit.cz] - Miko
 
 use strict;
@@ -26,7 +28,7 @@ my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 0, $fmt);
 for (1..3) {
   my $I = "user$_";
   my $P = "secret$_";
-  my ($s, $v) = $cli->compute_verifier_and_salt($I, $P, 32);
+  my ($v, $s) = $cli->compute_verifier_and_salt($I, $P, 32);
   $USERS{$I} = { salt=>$s, verifier=>$v };
 }
 for (sort keys %USERS) {
@@ -74,8 +76,8 @@ post '/auth/srp_step2' => sub {
     my $srv = Crypt::SRP->new->load($TOKENS{$token}); #restore state
 
     $srv->server_verify_M1($M1) or warn "server_verify_M1 FAILED!\n" and return $self->render_json({status=>'error'});
-    my $M2 = $srv->server_compute_M2($fmt);
-    my $K = $srv->get_secret_K($fmt);
+    my $M2 = $srv->server_compute_M2();
+    my $K = $srv->get_secret_K();
     warn "M2 = $M2\n";
     warn "[SUCCESS] K = $K\n";
     return $self->render_json({M2=>$M2});
