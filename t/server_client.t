@@ -5,6 +5,7 @@ use Crypt::SRP;
 
 $ENV{MOJO_LOG_LEVEL} = 'warn';
 plan skip_all => "Test::Mojo not installed" unless eval { require Test::Mojo } ;
+plan skip_all => "Mojolicious 3.93+ required" if eval { require Mojolicious; $Mojolicious::VERSION } < 3.93;
 plan tests => 16;
 
 require 'examples/srp_server.pl';
@@ -39,7 +40,7 @@ for (@test_set) {
   my $M2 = $tx2->res->json->{M2};
   my $K;
   if ($M2 && $cli->client_verify_M2($M2)) {
-     $K = $cli->get_secret_K(); # shared secret
-   }
-   ok($K, "[$I] shared secret");
+    $K = $cli->get_secret_K(); # shared secret
+  }
+  ok($K, "[$I] shared secret");
  }

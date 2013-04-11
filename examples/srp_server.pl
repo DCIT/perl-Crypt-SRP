@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# requires Mojolicious 3.93+
 # start like this: ./srp_server.pl daemon
 
 # Copyright (c) 2013 DCIT, a.s. [http://www.dcit.cz] - Miko
