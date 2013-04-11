@@ -24,7 +24,7 @@ my $dump;
   }
 );
 
-my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 0, $fmt);
+my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', $fmt);
 for (1..3) {
   my $I = "user$_";
   my $P = "secret$_";
@@ -32,7 +32,7 @@ for (1..3) {
   $USERS{$I} = { salt=>$s, verifier=>$v };
 }
 for (sort keys %USERS) {
-  warn "[$_] s=$USERS{$_}{salt} v=", substr($USERS{$_}{verifier},0,10), "..\n";
+  app->log->info(" [$_] s=$USERS{$_}{salt} v=" . substr($USERS{$_}{verifier},0,10) . "..");
 }
   
 post '/auth/srp_step1' => sub {
@@ -40,7 +40,7 @@ post '/auth/srp_step1' => sub {
     my $I = $self->req->json->{I};
     my $A = $self->req->json->{A};
     return $self->render_json({status=>'invalid'}) unless $I && $A;
-    my $srv = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 0, $fmt);
+    my $srv = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', $fmt);
     return $self->render_json({status=>'invalid'}) unless $srv->server_verify_A($A);
     my $token = $srv->random_bytes(8);
     if ($USERS{$I} && $USERS{$I}->{salt} && $USERS{$I}->{verifier}) {
@@ -49,12 +49,12 @@ post '/auth/srp_step1' => sub {
       $srv->server_init($I, $v, $s);
       #$srv->{predefined_b} = Math::BigInt->from_hex('E487CB59D31AC550471E81F00F6928E01DDA08E974A004F49E61F5D105284D20'); #DEBUG-ONLY
       my ($B, $b) = $srv->server_compute_B(32);
-      warn "I = $I\n";
-      warn "v = ", substr($v,0,30), "..\n";
-      warn "B = ", substr($B,0,30), "..\n";
-      warn "b = ", substr($b,0,30), "..\n";
+      $self->app->log->info("I = $I");
+      $self->app->log->info("v = ". substr($v,0,30). "..");
+      $self->app->log->info("B = ". substr($B,0,30). "..");
+      $self->app->log->info("b = ". substr($b,0,30). "..");
       $TOKENS{$token} = $srv->dump;
-      warn "storing state len=", length($TOKENS{$token}), "\n";
+      $self->app->log->info("storing state len=" . length($TOKENS{$token}));
       return $self->render_json({B=>$B, s=>$s, token=>$token});
     }
     else {
@@ -69,17 +69,20 @@ post '/auth/srp_step2' => sub {
     my $self = shift;
     my $M1 = $self->req->json->{M1};
     my $token = $self->req->json->{token};
-    warn "token = $token\n";
-    warn "M1 = $M1\n";
+    $self->app->log->info("token = $token");
+    $self->app->log->info("M1 = $M1");
     return $self->render_json({status=>'error'}) unless $M1 && $token && $TOKENS{$token};
     
     my $srv = Crypt::SRP->new->load($TOKENS{$token}); #restore state
 
-    $srv->server_verify_M1($M1) or warn "server_verify_M1 FAILED!\n" and return $self->render_json({status=>'error'});
+    if (!$srv->server_verify_M1($M1)) {
+      $self->app->log->info("server_verify_M1 FAILED!");
+      return $self->render_json({status=>'error'});
+    }
     my $M2 = $srv->server_compute_M2();
     my $K = $srv->get_secret_K();
-    warn "M2 = $M2\n";
-    warn "[SUCCESS] K = $K\n";
+    $self->app->log->info("M2 = $M2");
+    $self->app->log->info("[SUCCESS] K = $K");
     return $self->render_json({M2=>$M2});
   };
 

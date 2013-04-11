@@ -1,17 +1,17 @@
+use strict;
+use warnings;
 use Test::More;
 use Crypt::SRP;
 
+$ENV{MOJO_LOG_LEVEL} = 'warn';
 plan skip_all => "Test::Mojo not installed" unless eval { require Test::Mojo } ;
 plan tests => 16;
 
-require 'examples/srp_server.pl'; 
-my $t = Test::Mojo->new;
+require 'examples/srp_server.pl';
 
+my $t = Test::Mojo->new;
 my $base_url = '';
 my $ua = $t->ua;
-
-### hardcopy from examples/srp_client.pl
-
 my $fmt = 'hex'; # all SRP related parameters are automatically converted from/to hex
 
 my @test_set = ( ['alice', 'password123'] );
@@ -21,14 +21,14 @@ for (@test_set) {
   my $I = $_->[0];
   my $P = $_->[1];
 
-  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 0, $fmt);
+  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', $fmt);
   #$cli->{predefined_a} = Math::BigInt->from_hex('60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393'); #DEBUG-ONLY
   my ($A, $a) = $cli->client_compute_A(32);
   my $tx1 = $ua->post("$base_url/auth/srp_step1" => json => {I=>$I, A=>$A});
   ok($tx1->res->json, "invalid response 1");
 
   my $s = $tx1->res->json->{s};
-  my $B = $tx1->res->json->{B};  
+  my $B = $tx1->res->json->{B};
   my $token = $tx1->res->json->{token};
   ok($cli->client_verify_B($B), "[$I] invalid B");
   $cli->client_init($I, $P, $s);
@@ -43,4 +43,3 @@ for (@test_set) {
    }
    ok($K, "[$I] shared secret");
  }
- 

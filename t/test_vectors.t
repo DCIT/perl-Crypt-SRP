@@ -9,7 +9,6 @@ sub SRP_handshake {
 
   my $group   = $args{group};   # e.g. 'RFC5054-1024bit';
   my $hash    = $args{hash};    # e.g. 'SHA1';
-  my $interleaved = $args{interleaved};    # 1 or undef;
   my $Bytes_I = $args{Bytes_I}; # e.g. 'alice';
   my $Bytes_P = $args{Bytes_P}; # e.g. 'password123';
 
@@ -21,14 +20,14 @@ sub SRP_handshake {
   my $Bytes_v;
 
   if ($Bytes_s) {
-    $Bytes_v = Crypt::SRP->new($group, $hash, $interleaved)->compute_verifier($Bytes_I, $Bytes_P, $Bytes_s);
+    $Bytes_v = Crypt::SRP->new($group, $hash)->compute_verifier($Bytes_I, $Bytes_P, $Bytes_s);
   }
   else {
-    ($Bytes_v, $Bytes_s) = Crypt::SRP->new($group, $hash, $interleaved)->compute_verifier_and_salt($Bytes_I, $Bytes_P);
+    ($Bytes_v, $Bytes_s) = Crypt::SRP->new($group, $hash)->compute_verifier_and_salt($Bytes_I, $Bytes_P);
   }
 
   ###CLIENT:
-  my $client = Crypt::SRP->new($group, $hash, $interleaved);
+  my $client = Crypt::SRP->new($group, $hash);
   if (defined $Hex_a) {
     $Hex_a = "0x$Hex_a" unless $Hex_a =~ /^0x/;
     $client->{predefined_a} = Math::BigInt->from_hex($Hex_a);
@@ -38,7 +37,7 @@ sub SRP_handshake {
   # client -[$Bytes_I, $Bytes_A]---> server #
 
   ###SERVER:
-  my $server1 = Crypt::SRP->new($group, $hash, $interleaved);
+  my $server1 = Crypt::SRP->new($group, $hash);
   $server1->server_init($Bytes_I, $Bytes_v, $Bytes_s);
   if (defined $Hex_b) {
     $Hex_b = "0x$Hex_b" unless $Hex_b =~ /^0x/;
@@ -55,7 +54,7 @@ sub SRP_handshake {
   # client -[$Bytes_M1]--> server #
 
   ###SERVER:
-  my $server2 = Crypt::SRP->new($group, $hash, $interleaved);
+  my $server2 = Crypt::SRP->new($group, $hash);
   $server2->server_init($Bytes_I, $Bytes_v, $Bytes_s, $Bytes_A, $Bytes_B, $Bytes_b);
   my $M1_match = $server2->server_verify_M1($Bytes_M1);
   my $Bytes_M2 = $server2->server_compute_M2;
@@ -155,7 +154,7 @@ is(unpack('H*', $srp_data->{M2}), 'b475d7f2d75ce9537748005483e5d326048b59e9', 't
 
 ### other tests
 
-is( Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 0, 'hex')->compute_verifier('alice', 'password123', 'beb25379d1a8581eb5a727673a2441ee'), 
+is( Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 'hex')->compute_verifier('alice', 'password123', 'beb25379d1a8581eb5a727673a2441ee'), 
     '45acaca893ab3dfce07f22d7741df1b07b3c25b1c3c31999eac22f6a9187860fe49e2d9ddc344fc802a3a988ef178faae0c341771ee700b50ccc75cfe8f52a04b65dffe3eb4ff9ddc2cc8b81c2c4ac63f946a8d4c6364f8e61dbda2c73dad2d6224adc3f911711c8b71f42af9b479d7986749595c2053d384150b01fbde60bde', 
     'verifier test1');
 

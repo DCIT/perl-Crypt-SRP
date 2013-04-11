@@ -181,13 +181,13 @@ use constant _predefined_groups => {
 ### class constructor
 
 sub new {
-  my ($class, $group_params, $hash, $interleaved, $format, $default_salt_len) = @_;
+  my ($class, $group_params, $hash, $format, $interleaved, $default_salt_len) = @_;
   my $self = bless {}, $class;
 
-  $self->{HASH} = $hash || 'SHA256';
-  $self->{INTERLEAVED} = $interleaved || 0;
   $self->{GROUP} = $group_params || 'RFC5054-2048bit';
+  $self->{HASH} = $hash || 'SHA256';
   $self->{FORMAT} = $format || 'raw';
+  $self->{INTERLEAVED} = $interleaved || 0;
   $self->{SALT_LEN} = $default_salt_len || 32;
 
   $self->_initialize();
@@ -197,12 +197,12 @@ sub new {
 ### class PUBLIC methods
 
 sub reset {
-  my ($self, $group_params, $hash, $interleaved, $format, $default_salt_len) = @_;
+  my ($self, $group_params, $hash, $format, $default_salt_len, $interleaved) = @_;
 
-  $self->{HASH} = $hash if defined $hash;
-  $self->{INTERLEAVED} = $interleaved if defined $interleaved;
   $self->{GROUP} = $group_params if defined $group_params;
+  $self->{HASH} = $hash if defined $hash;
   $self->{FORMAT} = $format if defined $format;
+  $self->{INTERLEAVED} = $interleaved if defined $interleaved;
   $self->{SALT_LEN} = $default_salt_len if defined $default_salt_len;
 
   delete $self->{$_} for (@{_state_vars()});
@@ -796,18 +796,18 @@ the same enconding as well.
 
  my $srp = Crypt::SRP->new();
  #or
- my $srp = Crypt::SRP->new($group, $hash, $interleaved, $format, $default_salt_len);
+ my $srp = Crypt::SRP->new($group, $hash, $format, $default_salt_len, $interleaved);
  # $group ... (optional, DEFAULT='RFC5054-2048bit') 
  #            'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
  #            'RFC5054-3072bit' or 'RFC5054-4096bit' or 'RFC5054-6144bit' or
  #            'RFC5054-8192bit' see rfc5054 (appendix A)
  # $hash  ... (optional, DEFAULT='SHA256') 
  #            'SHA1' or 'SHA256' or 'SHA384' or 'SHA512'
+ # $format ... (optional, DEFAULT='raw') 
+ #             'raw' or 'hex' or 'base64' or 'base64url'
  # $interleaved ... (optional, DEFAULT=0) indicates whether the final shared 
  #                  secret K will be computed as SHAx(S) or SHAx_Interleaved(S)
  #                  see rfc2945 (3.1 Interleaved SHA)
- # $format ... (optional, DEFAULT='raw') 
- #             'raw' or 'hex' or 'base64' or 'base64url'
  # $default_salt_len ... (optional, DEFAULT=32)
  #                        default length (in bytes) for generated salt
 
@@ -815,7 +815,7 @@ the same enconding as well.
 
  $srp->reset();
  #or
- $srp->reset($group, $hash, $interleaved, $format, $default_salt_len);  # see new()
+ $srp->reset($group, $hash, $format, $default_salt_len, $interleaved);  # see new()
  
  # returns $srp (itself)
 

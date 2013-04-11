@@ -23,7 +23,8 @@ for (@test_set) {
   warn "#####################\n";
   warn "# [login=$I] SRP step1\n";
 
-  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 0, $fmt);
+  my $cli = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', $fmt);
+
   #$cli->{predefined_a} = Math::BigInt->from_hex('60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393'); #DEBUG-ONLY
   my ($A, $a) = $cli->client_compute_A(32);
   warn "I = $I\n";
