@@ -40,9 +40,9 @@ post '/auth/srp_step1' => sub {
     my $self = shift;
     my $I = $self->req->json->{I};
     my $A = $self->req->json->{A};
-    return $self->render_json({status=>'invalid'}) unless $I && $A;
+    return $self->render(json=>{status=>'invalid'}) unless $I && $A;
     my $srv = Crypt::SRP->new('RFC5054-1024bit', 'SHA1', $fmt);
-    return $self->render_json({status=>'invalid'}) unless $srv->server_verify_A($A);
+    return $self->render(json=>{status=>'invalid'}) unless $srv->server_verify_A($A);
     my $token = $srv->random_bytes(8);
     if ($USERS{$I} && $USERS{$I}->{salt} && $USERS{$I}->{verifier}) {
       # user exists
@@ -56,13 +56,13 @@ post '/auth/srp_step1' => sub {
       $self->app->log->info("b = ". substr($b,0,30). "..");
       $TOKENS{$token} = $srv->dump;
       $self->app->log->info("storing state len=" . length($TOKENS{$token}));
-      return $self->render_json({B=>$B, s=>$s, token=>$token});
+      return $self->render(json=>{B=>$B, s=>$s, token=>$token});
     }
     else {
       # fake response for no-nexisting user
       $dump = undef;
       my ($B, $s) = $srv->server_fake_B_s($I);
-      return $self->render_json({B=>$B, s=>$s, token=>$token});
+      return $self->render(json=>{B=>$B, s=>$s, token=>$token});
     }
   };
 
@@ -72,19 +72,19 @@ post '/auth/srp_step2' => sub {
     my $token = $self->req->json->{token};
     $self->app->log->info("token = $token");
     $self->app->log->info("M1 = $M1");
-    return $self->render_json({status=>'error'}) unless $M1 && $token && $TOKENS{$token};
+    return $self->render(json=>{status=>'error'}) unless $M1 && $token && $TOKENS{$token};
     
     my $srv = Crypt::SRP->new->load($TOKENS{$token}); #restore state
 
     if (!$srv->server_verify_M1($M1)) {
       $self->app->log->info("server_verify_M1 FAILED!");
-      return $self->render_json({status=>'error'});
+      return $self->render(json=>{status=>'error'});
     }
     my $M2 = $srv->server_compute_M2();
     my $K = $srv->get_secret_K();
     $self->app->log->info("M2 = $M2");
     $self->app->log->info("[SUCCESS] K = $K");
-    return $self->render_json({M2=>$M2});
+    return $self->render(json=>{M2=>$M2});
   };
 
 app->start;

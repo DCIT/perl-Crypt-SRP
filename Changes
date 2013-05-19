@@ -1,5 +1,10 @@
 Changes for Crypt::SRP
 
+0.007   2013/05/19
+        - examples/srp_server.pl compatible with Mojoliciuos 4
+        - use Crypt::PRNG if available
+        - get_secret_S + get_secret_K accept optional $format parameter
+
 0.006   2013/04/11
         - ($s, $v)=compute_verifier_and_salt
           >>> ($v,$s)=compute_verifier_and_salt

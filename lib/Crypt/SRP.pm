@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.006';
+our $VERSION = '0.007';
 $VERSION = eval $VERSION;
 #BEWARE update also version in URLs mentioned in documentation below
 
@@ -15,10 +15,10 @@ use MIME::Base64 qw(encode_base64 decode_base64);
 use Config;
 use Storable qw(nfreeze thaw);
 
-### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
-
 use constant _state_vars  => [ qw(Bytes_I Bytes_K Bytes_M1 Bytes_M2 Bytes_P Bytes_s Num_a Num_A Num_b Num_B Num_k Num_S Num_u Num_v Num_x) ];
 use constant _static_vars => [ qw(HASH INTERLEAVED GROUP FORMAT SALT_LEN) ];
+
+### predefined parameters - see http://tools.ietf.org/html/rfc5054 appendix A
 
 use constant _predefined_groups => {
     'RFC5054-1024bit' => {
@@ -259,7 +259,7 @@ sub client_compute_A {
   $self->{Num_a} = $self->_generate_SRP_a($a_len); # a = random() // a has min 256 bits, a < N
   $self->{Num_A} = $self->_calc_A;                 # A = g^a % N
   my $Bytes_A = _bignum2bytes($self->{Num_A});
-  my $Bytes_a = _bignum2bytes($self->{Num_a});  
+  my $Bytes_a = _bignum2bytes($self->{Num_a});
   return ($self->_format($Bytes_A), $self->_format($Bytes_a));
 }
 
@@ -326,13 +326,13 @@ sub server_compute_M2 {
 }
 
 sub get_secret_K {
-  my ($self) = @_;
-  return $self->_format($self->{Bytes_K});
+  my ($self, $format) = @_;
+  return $self->_format($self->{Bytes_K}, $format);
 }
 
 sub get_secret_S {
-  my ($self) = @_;
-  return $self->_format(_bignum2bytes($self->{Num_S}));
+  my ($self, $format) = @_;
+  return $self->_format(_bignum2bytes($self->{Num_S}), $format);
 }
 
 sub compute_verifier {
@@ -576,7 +576,10 @@ sub _random_bytes {
   my $length = shift || 32;
   my $rv;
 
-  if (eval {require Crypt::OpenSSL::Random}) {
+  if (eval {require Crypt::PRNG}) {
+    $rv = Crypt::PRNG::random_bytes($length);
+  }
+  elsif (eval {require Crypt::OpenSSL::Random}) {
     if (Crypt::OpenSSL::Random::random_status()) {
       $rv = Crypt::OpenSSL::Random::random_bytes($length);
     }
@@ -739,7 +742,7 @@ Example 2 - creating a new user and his/her password verifier:
                            $USERS{$I}->{verifier} = $v;
 
 Working sample implementation of SRP authentication on client and server side is available in C<examples>
-subdirectory: 
+subdirectory:
 L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.005/examples/srp_server.pl>,
 L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.005/examples/srp_client.pl>.
 
@@ -767,6 +770,8 @@ number generator. It tries to use one of the following:
 
 =over
 
+=item * L<Crypt::PRNG> - random_bytes()
+
 =item * L<Crypt::OpenSSL::Random> - random_bytes()
 
 =item * L<Net::SSLeay> - RAND_bytes()
@@ -787,8 +792,8 @@ C<$I = encode('utf8', $I)> or C<$P = encode('utf8', $P)>
 
 All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are by defaults raw octets (no BigInts no strings
 with utf8 flag). However if you set new's optional parameter C<$format> to C<'hex'>, C<'base64'> or C<'base64url'> SRP
-related input parameters (not C<$I> or C<$P>) are expected in given encoding and return values are coverted into
-the same enconding as well.
+related input parameters (not C<$I> or C<$P>) are expected in given encoding and return values are converted into
+the same encoding as well.
 
 =over
 
@@ -797,15 +802,15 @@ the same enconding as well.
  my $srp = Crypt::SRP->new();
  #or
  my $srp = Crypt::SRP->new($group, $hash, $format, $interleaved, $default_salt_len);
- # $group ... (optional, DEFAULT='RFC5054-2048bit') 
+ # $group ... (optional, DEFAULT='RFC5054-2048bit')
  #            'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
  #            'RFC5054-3072bit' or 'RFC5054-4096bit' or 'RFC5054-6144bit' or
  #            'RFC5054-8192bit' see rfc5054 (appendix A)
- # $hash  ... (optional, DEFAULT='SHA256') 
+ # $hash  ... (optional, DEFAULT='SHA256')
  #            'SHA1' or 'SHA256' or 'SHA384' or 'SHA512'
- # $format ... (optional, DEFAULT='raw') 
+ # $format ... (optional, DEFAULT='raw')
  #             'raw' or 'hex' or 'base64' or 'base64url'
- # $interleaved ... (optional, DEFAULT=0) indicates whether the final shared 
+ # $interleaved ... (optional, DEFAULT=0) indicates whether the final shared
  #                  secret K will be computed as SHAx(S) or SHAx_Interleaved(S)
  #                  see rfc2945 (3.1 Interleaved SHA)
  # $default_salt_len ... (optional, DEFAULT=32)
@@ -816,7 +821,7 @@ the same enconding as well.
  $srp->reset();
  #or
  $srp->reset($group, $hash, $format, $interleaved, $default_salt_len);  # see new()
- 
+
  # returns $srp (itself)
 
 =item * dump
@@ -833,14 +838,14 @@ the same enconding as well.
 
 =item * compute_verifier_and_salt
 
- my ($v, $s) = $srp->compute_verifier_and_salt($I, $P); 
+ my ($v, $s) = $srp->compute_verifier_and_salt($I, $P);
  #or
  my ($v, $s) = $srp->compute_verifier_and_salt($I, $P, $s_len);
 
 =item * client_init
 
  $srp->client_init($I, $P, $s, $B);
- 
+
  # returns $srp (itself)
 
 =item * client_compute_A
@@ -889,7 +894,7 @@ the same enconding as well.
 =item * server_compute_M2
 
  my $M2 = $srp->server_compute_M2();
- 
+
 =item * server_verify_A
 
  my $valid = server_verify_A($A);
@@ -897,17 +902,23 @@ the same enconding as well.
 =item * get_secret_S
 
  my $S = $srp->get_secret_S();
+ #or
+ my $S = $srp->get_secret_S($format);
+ # $format can me 'raw' or 'hex' or 'base64' or 'base64url'
 
 =item * get_secret_K
 
  my $K = $srp->get_secret_K();
+ #or
+ my $K = $srp->get_secret_K($format);
+ # $format can me 'raw' or 'hex' or 'base64' or 'base64url'
 
 =item * random_bytes
 
  my $rand = $srp->random_bytes();  # $rand formated according to $format passed to new()
  #or
  my $rand = $srp->random_bytes($len);
- 
+
  my $rand = Crypt::SRP->random_bytes();  # $rand always raw bytes
  #or
  my $rand = Crypt::SRP->random_bytes($len);
