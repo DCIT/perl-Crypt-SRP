@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.007';
+our $VERSION = '0.008';
 $VERSION = eval $VERSION;
 #BEWARE update also version in URLs mentioned in documentation below
 
@@ -498,8 +498,8 @@ sub _calc_K {
   my $self = shift;
   return undef unless defined $self->{Num_S};
   my $Bytes_S = _bignum2bytes($self->{Num_S});
-  # K = HASH(S)  or  K = HASH_Interleaved(S)
-  my $Bytes_K = $self->{INTERLEAVED} ? $self->_HASH_Interleaved($Bytes_S) : $self->_HASH($Bytes_S);
+  # K = HASH(PAD(S))  or  K = HASH_Interleaved(PAD(S))
+  my $Bytes_K = $self->{INTERLEAVED} ? $self->_HASH_Interleaved($self->_PAD($Bytes_S)) : $self->_HASH($self->_PAD($Bytes_S));
   return $Bytes_K
 }
 
