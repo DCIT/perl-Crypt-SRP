@@ -16,4 +16,7 @@ WriteMakefile(
       'Storable'     => 0,         # core module v5.7.3+
     },
     MIN_PERL_VERSION => '5.008008',
+    dist => {
+      PREOP => 'pod2text lib/Crypt/SRP.pm > README',
+    },
 );
