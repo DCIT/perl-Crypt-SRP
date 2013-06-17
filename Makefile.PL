@@ -1,4 +1,4 @@
-use 5.008008;
+use 5.006;
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
@@ -16,7 +16,7 @@ WriteMakefile(
       'MIME::Base64' => 0,         # core module v5.7.3+
       'Storable'     => 0,         # core module v5.7.3+
     },
-    MIN_PERL_VERSION => '5.008008',
+    MIN_PERL_VERSION => '5.006',
     dist => {
       PREOP => 'pod2text lib/Crypt/SRP.pm > README',
     },
