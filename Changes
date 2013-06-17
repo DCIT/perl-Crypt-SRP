@@ -1,5 +1,8 @@
 Changes for Crypt::SRP
 
+0.010   2013/XX/XX
+        - adding README
+
 0.009   2013/06/17
         - fix: hex padding when hex string has odd length
 
