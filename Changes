@@ -1,5 +1,8 @@
 Changes for Crypt::SRP
 
+0.009   2013/06/17
+        - fix: hex padding when hex string has odd length
+
 0.008   2013/06/07
         - calc_K fix (was broken for S with leading zeros)
 

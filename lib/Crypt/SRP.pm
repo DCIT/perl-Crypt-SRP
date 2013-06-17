@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.008';
+our $VERSION = '0.009';
 $VERSION = eval $VERSION;
 #BEWARE update also version in URLs mentioned in documentation below
 
@@ -609,10 +609,7 @@ sub _random_bytes {
 sub _bignum2bytes {
   my $bignum = shift;
   return undef unless defined $bignum && ref($bignum) eq 'Math::BigInt';
-  my $hex = $bignum->as_hex;
-  $hex =~ s/^0x//;                    # strip leading '0x...'
-  $hex = "0$hex" if length($hex) % 2; # add leading '0' if neccessary
-  return pack("H*", $hex);
+  return _unhex($bignum->as_hex);
 }
 
 sub _bytes2bignum {
@@ -637,10 +634,17 @@ sub _unformat {
   $format ||= $self->{FORMAT};
   return undef                  unless defined $input;
   return $input                 if $format eq 'raw';
-  return pack("H*", $input)     if $format eq 'hex';
+  return _unhex($input)         if $format eq 'hex';
   return decode_base64($input)  if $format eq 'base64';
   return _base64url_dec($input) if $format eq 'base64url';
   return undef;
+}
+
+sub _unhex {
+  my $hex = shift;
+  $hex =~ s/^0x//;                    # strip leading '0x...'
+  $hex = "0$hex" if length($hex) % 2; # add leading '0' if neccessary
+  return pack("H*", $hex);  
 }
 
 # RFC 4648 Base64 URL Safe - https://tools.ietf.org/html/rfc4648#page-7
@@ -924,6 +928,10 @@ the same encoding as well.
  my $rand = Crypt::SRP->random_bytes($len);
 
 =back
+
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =head1 COPYRIGHT
 
