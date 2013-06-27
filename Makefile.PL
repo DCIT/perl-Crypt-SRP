@@ -18,6 +18,7 @@ WriteMakefile(
     },
     MIN_PERL_VERSION => '5.006',
     dist => {
-      PREOP => 'pod2text lib/Crypt/SRP.pm > README',
+      PREOP    => 'pod2text lib/Crypt/SRP.pm > README',
+      TARFLAGS => '--owner=0 --group=0 -cvf',
     },
 );

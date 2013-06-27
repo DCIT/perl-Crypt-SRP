@@ -118,7 +118,7 @@ METHODS
     encode('utf8', $I)" or "$P = encode('utf8', $P)"
 
     All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are
-    by defaults raw octets (no BigInts no strings with utf8 flag). However
+    by defaults raw octets (no BigInts, no strings with utf8 flag). However
     if you set new's optional parameter $format to 'hex', 'base64' or
     'base64url' SRP related input parameters (not $I or $P) are expected in
     given encoding and return values are converted into the same encoding as
