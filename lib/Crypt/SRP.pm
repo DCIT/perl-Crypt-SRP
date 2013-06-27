@@ -794,7 +794,7 @@ Login and password ($I, $P) can be ASCII strings (without utf8 flag) or raw octe
 characters in login and/or password then you have to encode them from Perl's internal from like this:
 C<$I = encode('utf8', $I)> or C<$P = encode('utf8', $P)>
 
-All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are by defaults raw octets (no BigInts no strings
+All SRP related variables ($s, $v, $A, $a, $B, $b, $M1, $M2, $S, $K) are by defaults raw octets (no BigInts, no strings
 with utf8 flag). However if you set new's optional parameter C<$format> to C<'hex'>, C<'base64'> or C<'base64url'> SRP
 related input parameters (not C<$I> or C<$P>) are expected in given encoding and return values are converted into
 the same encoding as well.
