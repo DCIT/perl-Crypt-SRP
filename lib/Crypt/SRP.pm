@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.010';
+our $VERSION = '0.011';
 $VERSION = eval $VERSION;
 #BEWARE update also version in URLs mentioned in documentation below
 
@@ -644,7 +644,7 @@ sub _unhex {
   my $hex = shift;
   $hex =~ s/^0x//;                    # strip leading '0x...'
   $hex = "0$hex" if length($hex) % 2; # add leading '0' if neccessary
-  return pack("H*", $hex);  
+  return pack("H*", $hex);
 }
 
 # RFC 4648 Base64 URL Safe - https://tools.ietf.org/html/rfc4648#page-7
@@ -747,8 +747,8 @@ Example 2 - creating a new user and his/her password verifier:
 
 Working sample implementation of SRP authentication on client and server side is available in C<examples>
 subdirectory:
-L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.005/examples/srp_server.pl>,
-L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.005/examples/srp_client.pl>.
+L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.011/examples/srp_server.pl>,
+L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.011/examples/srp_client.pl>.
 
 =head1 DESCRIPTION
 
@@ -935,4 +935,4 @@ This program is free software; you can redistribute it and/or modify it under th
 
 =head1 COPYRIGHT
 
-Copyright (c) 2013 DCIT, a.s. L<http://www.dcit.cz> / Karel Miko
+Copyright (c) 2012 DCIT, a.s. L<http://www.dcit.cz> / Karel Miko
