@@ -76,9 +76,9 @@ SYNOPSIS
 
     Working sample implementation of SRP authentication on client and server
     side is available in "examples" subdirectory: srp_server.pl
-    <https://metacpan.org/source/MIK/Crypt-SRP-0.011/examples/srp_server.pl>
+    <https://metacpan.org/source/MIK/Crypt-SRP-0.012/examples/srp_server.pl>
     , srp_client.pl
-    <https://metacpan.org/source/MIK/Crypt-SRP-0.011/examples/srp_client.pl>
+    <https://metacpan.org/source/MIK/Crypt-SRP-0.012/examples/srp_client.pl>
     .
 
 DESCRIPTION

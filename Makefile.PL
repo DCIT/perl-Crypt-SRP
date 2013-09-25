@@ -17,6 +17,13 @@ WriteMakefile(
       'Storable'     => 0,         # core module v5.7.3+
     },
     MIN_PERL_VERSION => '5.006',
+    META_MERGE       => {
+      resources => {
+        repository => {
+          url => 'https://github.com/DCIT/perl-Crypt-SRP',
+        },
+      },
+    },
     dist => {
       PREOP    => 'pod2text lib/Crypt/SRP.pm > README',
       TARFLAGS => '--owner=0 --group=0 -cvf',
