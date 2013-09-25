@@ -19,9 +19,7 @@ WriteMakefile(
     MIN_PERL_VERSION => '5.006',
     META_MERGE       => {
       resources => {
-        repository => {
-          url => 'https://github.com/DCIT/perl-Crypt-SRP',
-        },
+        repository => 'https://github.com/DCIT/perl-Crypt-SRP',
       },
     },
     dist => {
