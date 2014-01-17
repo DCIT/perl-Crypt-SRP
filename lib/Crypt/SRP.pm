@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.012';
+our $VERSION = '0.013';
 $VERSION = eval $VERSION;
 #BEWARE update also version in URLs mentioned in documentation below
 
@@ -299,7 +299,7 @@ sub server_fake_B_s {
   # default $nonce should be fixed for repeated invocation on the same machine (in different processes)
   $nonce ||= join(":", @INC, $Config{archname}, $Config{myuname}, $^X, $^V, $<, $(, $ENV{PATH}, $ENV{HOSTNAME}, $ENV{HOME});
   my $b = _bytes2bignum(_random_bytes(6)); #NOTE: maybe too short but we do not want to waste too much CPU on modpow
-  my $B = _bignum2bytes(Math::BigInt->new($self->{Num_g})->copy->bmodpow($b, $self->{Num_N}));
+  my $B = _bignum2bytes($self->{Num_g}->copy->bmodpow($b, $self->{Num_N}));
   my $s = '';
   my $i = 1;
   $s .= Digest::SHA::hmac_sha256($I, $nonce.$i++) while length($s) < $s_len;
@@ -441,7 +441,7 @@ sub _calc_v {
   my $self = shift;
   return undef unless defined $self->{Num_x} && defined $self->{Num_N} && defined $self->{Num_g};
   # v = g^x % N
-  my $Num_v = Math::BigInt->new($self->{Num_g})->copy->bmodpow($self->{Num_x}, $self->{Num_N});
+  my $Num_v = $self->{Num_g}->copy->bmodpow($self->{Num_x}, $self->{Num_N});
   my $Bytes_v = _bignum2bytes($Num_v);
   return $Bytes_v;
 }
@@ -450,7 +450,7 @@ sub _calc_A {
   my $self = shift;
   return undef unless defined $self->{Num_a} && defined $self->{Num_N} && defined $self->{Num_g};
   # A = g^a % N
-  my $Num_A = Math::BigInt->new($self->{Num_g})->copy->bmodpow($self->{Num_a}, $self->{Num_N});
+  my $Num_A = $self->{Num_g}->copy->bmodpow($self->{Num_a}, $self->{Num_N});
   return $Num_A;
 }
 
@@ -476,9 +476,12 @@ sub _calc_S_client {
   return undef unless defined $self->{Num_B} && defined $self->{Num_a} && defined $self->{Num_u} && defined $self->{Num_k};
   return undef unless defined $self->{Num_x} && defined $self->{Num_N} && defined $self->{Num_g};
   # S = (B - (k * ((g^x)%N) )) ^ (a + (u * x)) % N
-  my $tmp1 = Math::BigInt->new($self->{Num_g})->copy->bmodpow($self->{Num_x}, $self->{Num_N})->bmul($self->{Num_k})->bmod($self->{Num_N});
-  my $tmp2 = Math::BigInt->new($self->{Num_u})->copy->bmul($self->{Num_x})->badd($self->{Num_a});
-  my $tmp3 = Math::BigInt->new($self->{Num_B})->copy->bsub($tmp1);
+  #          <--- tmp1 ----->    <--- tmp2 -->
+  #     <--- tmp3 ----------->
+  my $tmp1 = $self->{Num_g}->copy->bmodpow($self->{Num_x}, $self->{Num_N})->bmul($self->{Num_k})->bmod($self->{Num_N});
+  my $tmp2 = $self->{Num_u}->copy->bmul($self->{Num_x})->badd($self->{Num_a})->bmod($self->{Num_N} - 1); # optimized version
+  #my $tmp2 = $self->{Num_u}->copy->bmul($self->{Num_x})->badd($self->{Num_a});
+  my $tmp3 = $self->{Num_B}->copy->bsub($tmp1);
   my $Num_S = $tmp3->bmodpow($tmp2, $self->{Num_N}); #NOTE: this fails on Math-BigInt before 1.991
   return $Num_S;
 }
@@ -488,7 +491,7 @@ sub _calc_S_server {
   return undef unless defined $self->{Num_A} && defined $self->{Num_b} && defined $self->{Num_u};
   return undef unless defined $self->{Num_v} && defined $self->{Num_N};
   # S = ( (A * ((v^u)%N)) ^ b) % N
-  my $Num_S = Math::BigInt->new($self->{Num_v})->copy->bmodpow($self->{Num_u}, $self->{Num_N});
+  my $Num_S = $self->{Num_v}->copy->bmodpow($self->{Num_u}, $self->{Num_N});
   $Num_S->bmul($self->{Num_A})->bmodpow($self->{Num_b}, $self->{Num_N});
   return $Num_S;
 }
@@ -525,15 +528,15 @@ sub _calc_B {
   my $self = shift;
   return undef unless defined $self->{Num_k} && defined $self->{Num_b} && defined $self->{Num_N} && defined $self->{Num_g};
   # B = ( k*v + (g^b % N) ) % N
-  my $tmp = Math::BigInt->new($self->{Num_g})->copy->bmodpow($self->{Num_b}, $self->{Num_N});
-  my $Num_B = Math::BigInt->new($self->{Num_k})->copy->bmul($self->{Num_v})->badd($tmp)->bmod($self->{Num_N});
+  my $tmp = $self->{Num_g}->copy->bmodpow($self->{Num_b}, $self->{Num_N});
+  my $Num_B = $self->{Num_k}->copy->bmul($self->{Num_v})->badd($tmp)->bmod($self->{Num_N});
   return $Num_B;
 }
 
 sub _generate_SRP_a_or_b {
   my ($self, $len, $pre) = @_;
   my $min = Math::BigInt->new(256)->bpow(31); # we require minimum 256bits (=32bytes)
-  my $max = Math::BigInt->new($self->{Num_N})->copy->bsub(1); # $max = N-1
+  my $max = $self->{Num_N}->copy->bsub(1); # $max = N-1
   if (defined $pre) {
     my $result = $pre;
     die "Invalid (too short) prefefined value" unless $result->bcmp($min) >= 0;
