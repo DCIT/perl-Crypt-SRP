@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.013';
+our $VERSION = '0.014';
 $VERSION = eval $VERSION;
 #BEWARE update also version in URLs mentioned in documentation below
 
