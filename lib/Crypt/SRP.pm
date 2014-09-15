@@ -337,7 +337,7 @@ sub get_secret_S {
 
 sub compute_verifier {
   my ($self, $Bytes_I, $Bytes_P, $Bytes_s) = @_;
-  $Bytes_s = $self->_unformat($Bytes_s);
+  #$Bytes_s = $self->_unformat($Bytes_s);
   # do not unformat $Bytes_I, $Bytes_P
   $self->client_init($Bytes_I, $Bytes_P, $Bytes_s);
   return $self->_format($self->_calc_v);
