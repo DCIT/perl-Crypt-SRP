@@ -1,7 +1,8 @@
 Changes for Crypt::SRP
 
-0.014   2014/09/15
+0.014   2014/10/07
         - fix compute_verifier
+
 0.013   2014/01/17
         - optimized _calc_S_client
 
