@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Crypt::SRP;
-use Test::More;
+use Test::More tests => 22;
 
 sub SRP_handshake {
   my %args = @_;
@@ -157,5 +157,3 @@ is(unpack('H*', $srp_data->{M2}), 'b475d7f2d75ce9537748005483e5d326048b59e9', 't
 is( Crypt::SRP->new('RFC5054-1024bit', 'SHA1', 'hex')->compute_verifier('alice', 'password123', 'beb25379d1a8581eb5a727673a2441ee'),
     '7e273de8696ffc4f4e337d05b4b375beb0dde1569e8fa00a9886d8129bada1f1822223ca1a605b530e379ba4729fdc59f105b4787e5186f5c671085a1447b52a48cf1970b4fb6f8400bbf4cebfbb168152e08ab5ea53d15c1aff87b2b9da6e04e058ad51cc72bfc9033b564e26480d78e955a5e29e7ab245db2be315e2099afb',
     'verifier test1');
-
-done_testing();
