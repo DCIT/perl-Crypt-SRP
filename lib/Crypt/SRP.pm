@@ -702,8 +702,8 @@ Example 2 - creating a new user and his/her password verifier:
 
 Working sample implementation of SRP authentication on client and server side is available in C<examples>
 subdirectory:
-L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.012/examples/srp_server.pl>,
-L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.012/examples/srp_client.pl>.
+L<srp_server.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.015/examples/srp_server.pl>,
+L<srp_client.pl|https://metacpan.org/source/MIK/Crypt-SRP-0.015/examples/srp_client.pl>.
 
 =head1 DESCRIPTION
 
@@ -720,25 +720,6 @@ More info about SRP protocol:
 =back
 
 This module implements SRP version 6a.
-
-B<IMPORTANT:> This module needs a cryptographically strong random
-number generator. It tries to use one of the following:
-
-=over
-
-=item * L<Crypt::PRNG> - random_bytes()
-
-=item * L<Crypt::OpenSSL::Random> - random_bytes()
-
-=item * L<Net::SSLeay> - RAND_bytes()
-
-=item * L<Crypt::Random> - makerandom_octet()
-
-=item * L<Bytes::Random::Secure> - random_bytes()
-
-=item * As an B<unsecure> fallback it uses built-in rand()
-
-=back
 
 =head1 METHODS
 
