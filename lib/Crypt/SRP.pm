@@ -1,19 +1,19 @@
 package Crypt::SRP;
 
-# Copyright (c) 2012 DCIT, a.s. [http://www.dcit.cz] - Miko
+# Copyright (c) 2012+ DCIT, a.s. [http://www.dcit.cz] - Miko
 
 use strict;
 use warnings;
 
-our $VERSION = '0.014';
-$VERSION = eval $VERSION;
-#BEWARE update also version in URLs mentioned in documentation below
+our $VERSION = '0.015';
 
-use Math::BigInt try => 'GMP';
-use Digest::SHA;
-use MIME::Base64 qw(encode_base64 decode_base64);
+use Math::BigInt lib => 'LTM'; # Math::BigInt::LTM is part of CryptX-0.029+
+use Crypt::Mac::HMAC qw(hmac);
+use Crypt::Digest qw(digest_data);
+use Crypt::Misc qw(encode_b64 decode_b64 encode_b64u decode_b64u);
+use Crypt::PRNG;
 use Config;
-use Storable qw(nfreeze thaw);
+use Carp;
 
 use constant _state_vars  => [ qw(Bytes_I Bytes_K Bytes_M1 Bytes_M2 Bytes_P Bytes_s Num_a Num_A Num_b Num_B Num_k Num_S Num_u Num_v Num_x) ];
 use constant _static_vars => [ qw(HASH INTERLEAVED GROUP FORMAT SALT_LEN) ];
@@ -214,13 +214,15 @@ sub reset {
 sub dump {
   my $self = shift;
   my $state = [ map {$self->{$_}} (@{_state_vars()}, @{_static_vars()}) ];
-  return encode_base64(nfreeze($state), "");
+  eval { require Storable } or croak "FATAL: dump() requires Storable";
+  return encode_b64(Storable::nfreeze($state));
 }
 
 sub load {
   my ($self, $state) = @_;
   $self->reset;
-  my $s = thaw(decode_base64($state));
+  eval { require Storable } or croak "FATAL: load() requires Storable";
+  my $s = Storable::thaw(decode_b64($state));
   my @list = (@{_state_vars()}, @{_static_vars()});
   $self->{$list[$_]} = $s->[$_] for 0..$#list;
   $self->_initialize();
@@ -302,7 +304,7 @@ sub server_fake_B_s {
   my $B = _bignum2bytes($self->{Num_g}->copy->bmodpow($b, $self->{Num_N}));
   my $s = '';
   my $i = 1;
-  $s .= Digest::SHA::hmac_sha256($I, $nonce.$i++) while length($s) < $s_len;
+  $s .= hmac('SHA256', $nonce.$i++, $I) while length($s) < $s_len;
   $s = substr($s, 0, $s_len);
   return ($self->_format($B), $self->_format($s));
 }
@@ -388,20 +390,17 @@ sub _initialize {
     $self->{N_LENGTH} = length(_bignum2bytes($self->{Num_N}));
   }
   else {
-    die "FATAL: invalid group_params '$self->{GROUP}'";
+    croak "FATAL: invalid group_params '$self->{GROUP}'";
   }
 
   # test hash function
-  die "FATAL: invalid hash '$self->{HASH}'" unless defined $self->_HASH("test");
+  croak "FATAL: invalid hash '$self->{HASH}'" unless defined $self->_HASH("test");
   return $self;
 }
 
 sub _HASH {
   my ($self, $data) = @_;
-  return Digest::SHA::sha1($data)   if $self->{HASH} eq 'SHA1';
-  return Digest::SHA::sha256($data) if $self->{HASH} eq 'SHA256';
-  return Digest::SHA::sha384($data) if $self->{HASH} eq 'SHA384';
-  return Digest::SHA::sha512($data) if $self->{HASH} eq 'SHA512';
+  return digest_data($self->{HASH}, $data) if $self->{HASH} =~ /^SHA(1|256|384|512)$/;
   return undef;
 }
 
@@ -538,8 +537,8 @@ sub _generate_SRP_a_or_b {
   my $max = $self->{Num_N}->copy->bsub(1); # $max = N-1
   if (defined $pre) {
     my $result = $pre;
-    die "Invalid (too short) prefefined value" unless $result->bcmp($min) >= 0;
-    die "Invalid (too big) prefefined value"   unless $result->bcmp($max) <= 0;
+    croak "Invalid (too short) prefefined value" unless $result->bcmp($min) >= 0;
+    croak "Invalid (too big) prefefined value"   unless $result->bcmp($max) <= 0;
     return $result;
   }
   $len ||= $self->{N_LENGTH};
@@ -575,36 +574,7 @@ sub _validate_A_or_B {
 
 sub _random_bytes {
   my $length = shift || 32;
-  my $rv;
-
-  if (eval {require Crypt::PRNG}) {
-    $rv = Crypt::PRNG::random_bytes($length);
-  }
-  elsif (eval {require Crypt::OpenSSL::Random}) {
-    if (Crypt::OpenSSL::Random::random_status()) {
-      $rv = Crypt::OpenSSL::Random::random_bytes($length);
-    }
-  }
-  elsif (eval {require Net::SSLeay}) {
-    if (Net::SSLeay::RAND_status() == 1) {
-      if (Net::SSLeay::RAND_bytes($rv, $length) != 1) {
-        $rv = undef;
-      }
-    }
-  }
-  elsif (eval {require Crypt::Random}) {
-    $rv = Crypt::Random::makerandom_octet(Length=>$length);
-  }
-  elsif (eval {require Bytes::Random::Secure}) {
-    $rv = Bytes::Random::Secure::random_bytes($length);
-  }
-
-  if (!defined $rv)  {
-    warn "WARNING: Generating random bytes via insecure rand()\n";
-    $rv = pack('C*', map(int(rand(256)), 1..$length));
-  }
-
-  return $rv;
+  return Crypt::PRNG::random_bytes($length);
 }
 
 sub _bignum2bytes {
@@ -622,22 +592,22 @@ sub _bytes2bignum {
 sub _format {
   my ($self, $bytes, $format) = @_;
   $format ||= $self->{FORMAT};
-  return undef                     unless defined $bytes;
-  return $bytes                    if $format eq 'raw';
-  return unpack("H*", $bytes)      if $format eq 'hex';
-  return encode_base64($bytes, "") if $format eq 'base64';
-  return _base64url_enc($bytes)    if $format eq 'base64url';
+  return undef                 unless defined $bytes;
+  return $bytes                if $format eq 'raw';
+  return unpack("H*", $bytes)  if $format eq 'hex';
+  return encode_b64($bytes)    if $format eq 'base64';
+  return encode_b64u($bytes)   if $format eq 'base64url';
   return undef;
 }
 
 sub _unformat {
   my ($self, $input, $format) = @_;
   $format ||= $self->{FORMAT};
-  return undef                  unless defined $input;
-  return $input                 if $format eq 'raw';
-  return _unhex($input)         if $format eq 'hex';
-  return decode_base64($input)  if $format eq 'base64';
-  return _base64url_dec($input) if $format eq 'base64url';
+  return undef                 unless defined $input;
+  return $input                if $format eq 'raw';
+  return _unhex($input)        if $format eq 'hex';
+  return decode_b64($input)    if $format eq 'base64';
+  return decode_b64u($input)   if $format eq 'base64url';
   return undef;
 }
 
@@ -646,22 +616,6 @@ sub _unhex {
   $hex =~ s/^0x//;                    # strip leading '0x...'
   $hex = "0$hex" if length($hex) % 2; # add leading '0' if necessary
   return pack("H*", $hex);
-}
-
-# RFC 4648 Base64 URL Safe - https://tools.ietf.org/html/rfc4648#page-7
-sub _base64url_enc {
-    my $data = shift;
-    my $b64 = encode_base64($data, '');
-    $b64 =~ s/=+\z//;
-    $b64 =~ tr[+/][-_];
-    return $b64;
-}
-
-sub _base64url_dec {
-    my $b64 = shift;
-    $b64 =~ tr[-_][+/];
-    $b64 .= '=' while length($b64) % 4;
-    return decode_base64($b64);
 }
 
 1;
@@ -766,9 +720,6 @@ More info about SRP protocol:
 =back
 
 This module implements SRP version 6a.
-
-B<IMPORTANT:> This module performs some big integer arithmetic via L<Math::BigInt>.
-From performance reasons it is recommended to install L<Math::BigInt::GMP>.
 
 B<IMPORTANT:> This module needs a cryptographically strong random
 number generator. It tries to use one of the following:
