@@ -1,5 +1,8 @@
 Changes for Crypt::SRP
 
+0.015   2016/04/13
+        - minimizing dependencies, now only CryptX-0.030 + Math::BigInt-1.36
+
 0.014   2014/10/07
         - fix compute_verifier
 

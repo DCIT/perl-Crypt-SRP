@@ -8,13 +8,10 @@ WriteMakefile(
     AUTHOR       => 'Karel Miko',
     VERSION_FROM => 'lib/Crypt/SRP.pm',
     ABSTRACT     => 'Secure Remote Protocol',
-    LICENSE      => 'perl',
+    LICENSE      => 'perl_5',
     PREREQ_PM    => {
-      'Math::BigInt' => '1.991',   # core module v5.14.0 has 1.994
-      'Test::More'   => '0.88',    # core module v5.10.1 has 0.92
-      'Digest::SHA'  => 0,         # core module v5.9.3+
-      'MIME::Base64' => 0,         # core module v5.7.3+
-      'Storable'     => 0,         # core module v5.7.3+
+      'CryptX'       => '0.029',   # we need: Crypt::Misc + Math::BigInt::LTM (v0.029 = Apr 13, 2016)
+      'Math::BigInt' => '1.36',    # we need: use Math::BigInt lib => 'LTM' (v1.36 = Jul 09, 2001)
     },
     MIN_PERL_VERSION => '5.006',
     META_MERGE       => {
