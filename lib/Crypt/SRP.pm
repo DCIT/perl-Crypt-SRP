@@ -480,7 +480,8 @@ sub _calc_S_client {
   my $tmp2 = $self->{Num_u}->copy->bmul($self->{Num_x})->badd($self->{Num_a})->bmod($self->{Num_N} - 1); # optimized version
   #my $tmp2 = $self->{Num_u}->copy->bmul($self->{Num_x})->badd($self->{Num_a});
   my $tmp3 = $self->{Num_B}->copy->bsub($tmp1);
-  my $Num_S = $tmp3->bmodpow($tmp2, $self->{Num_N}); #NOTE: this fails on Math-BigInt before 1.991
+  $tmp3->badd($self->{Num_N}) if $tmp3 < 0; # $tmp3 might be negative which is not correctly handled by bmodpow in Math-BigInt before 1.991
+  my $Num_S = $tmp3->bmodpow($tmp2, $self->{Num_N});
   return $Num_S;
 }
 
