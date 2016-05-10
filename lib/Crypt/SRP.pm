@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.015';
+our $VERSION = '0.016';
 
 use Math::BigInt lib => 'LTM'; # Math::BigInt::LTM is part of CryptX-0.029+
 use Crypt::Mac::HMAC qw(hmac);
