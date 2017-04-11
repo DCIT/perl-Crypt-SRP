@@ -9,7 +9,7 @@ plan skip_all => "Test::Mojo not installed" unless eval { require Test::Mojo } ;
 plan skip_all => "Mojolicious 3.93+ required" if eval { require Mojolicious; $Mojolicious::VERSION } < 3.93;
 plan tests => 16;
 
-require 'examples/srp_server.pl';
+require './examples/srp_server.pl';
 
 my $t = Test::Mojo->new;
 my $base_url = '';

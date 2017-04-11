@@ -1,5 +1,8 @@
 Changes for Crypt::SRP
 
+0.017   2017/04/11
+        - @INC & . fix
+
 0.016   2016/05/10
         - requires Math::BigInt-1.88 or newer
 

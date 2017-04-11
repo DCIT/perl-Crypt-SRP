@@ -17,10 +17,13 @@ WriteMakefile(
     META_MERGE       => {
       resources => {
         repository => 'https://github.com/DCIT/perl-Crypt-SRP',
+        bugtracker => 'https://github.com/DCIT/perl-Crypt-SRP/issues',
       },
     },
     dist => {
       PREOP    => 'pod2text lib/Crypt/SRP.pm > README',
-      TARFLAGS => '--owner=0 --group=0 -cvf',
+      TAR      => 'ptar',
+      TARFLAGS => '-c -C -f'
+      #TARFLAGS => '--owner=0 --group=0 -cvf',
     },
 );
