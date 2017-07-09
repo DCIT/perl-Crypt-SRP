@@ -730,7 +730,7 @@ Example 1 - SRP login handshake:
 
  ###CLIENT###
  if ($M2 && $cli->client_verify_M2($M2)) {
-   my $K = $srv->get_secret_K; # shared secret
+   my $K = $cli->get_secret_K; # shared secret
    print "SUCCESS";
  }
  else {
