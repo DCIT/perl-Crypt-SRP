@@ -86,9 +86,11 @@ DESCRIPTION
 
     *   <http://srp.stanford.edu/design.html>
 
-    *   <http://en.wikipedia.org/wiki/Secure_Remote_Password_protocol>
+    *   <https://en.wikipedia.org/wiki/Secure_Remote_Password_protocol>
 
-    *   <http://tools.ietf.org/html/rfc5054>
+    *   <https://tools.ietf.org/html/rfc2945>
+
+    *   <https://tools.ietf.org/html/rfc5054>
 
     This module implements SRP version 6a.
 
@@ -108,25 +110,35 @@ METHODS
     *   new
 
          my $srp = Crypt::SRP->new();
+
          #or
+         my $srp = Crypt::SRP->new({ group => $group, hash => $hash, format => $format });
+         # group       - DEFAULT='RFC5054-2048bit'
+         #               'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
+         #               'RFC5054-3072bit' or 'RFC5054-4096bit' or 'RFC5054-6144bit' or
+         #               'RFC5054-8192bit' see rfc5054 (appendix A)
+         # hash        - DEFAULT='SHA256'
+         #               'SHA1' or 'SHA256' or 'SHA384' or 'SHA512'
+         # format      - DEFAULT='raw'
+         #               'raw' or 'hex' or 'base64' or 'base64url'
+         # interleaved - DEFAULT=0
+         #               indicates whether the final shared secret K will be computed
+         #               as SHAx(S) or SHAx_Interleaved(S) see rfc2945 (3.1 Interleaved SHA)
+         # saltlen     - DEFAULT=32
+         #               default length (in bytes) for generated salt
+         # srptools    - DEFAULT=0
+         #               operate in a mode compatible with python package srptools
+         # appletv     - DEFAULT=0
+         #               operate in a mode compatible with SRP6a used by AppleTV / AirPlayAuth
+
+         #or (OLD interface)
          my $srp = Crypt::SRP->new($group, $hash, $format, $interleaved, $default_salt_len);
-         # $group ... (optional, DEFAULT='RFC5054-2048bit')
-         #            'RFC5054-1024bit' or 'RFC5054-1536bit' or 'RFC5054-2048bit' or
-         #            'RFC5054-3072bit' or 'RFC5054-4096bit' or 'RFC5054-6144bit' or
-         #            'RFC5054-8192bit' see rfc5054 (appendix A)
-         # $hash  ... (optional, DEFAULT='SHA256')
-         #            'SHA1' or 'SHA256' or 'SHA384' or 'SHA512'
-         # $format ... (optional, DEFAULT='raw')
-         #             'raw' or 'hex' or 'base64' or 'base64url'
-         # $interleaved ... (optional, DEFAULT=0) indicates whether the final shared
-         #                  secret K will be computed as SHAx(S) or SHAx_Interleaved(S)
-         #                  see rfc2945 (3.1 Interleaved SHA)
-         # $default_salt_len ... (optional, DEFAULT=32)
-         #                        default length (in bytes) for generated salt
 
     *   reset
 
          $srp->reset();
+         #or
+         $srp->reset({ group => $group, hash => $hash, format => $format });    # see new()
          #or
          $srp->reset($group, $hash, $format, $interleaved, $default_salt_len);  # see new()
 
