@@ -933,4 +933,4 @@ This program is free software; you can redistribute it and/or modify it under th
 
 =head1 COPYRIGHT
 
-Copyright (c) 2012 DCIT, a.s. L<http://www.dcit.cz> / Karel Miko
+Copyright (c) 2012+ DCIT, a.s. L<http://www.dcit.cz> / Karel Miko
