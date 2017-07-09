@@ -230,6 +230,9 @@ sub client_init {
   $self->{Num_B}   = _bytes2bignum($self->_unformat($Bytes_B)) if defined $Bytes_B;
   $self->{Num_A}   = _bytes2bignum($self->_unformat($Bytes_A)) if defined $Bytes_A;
   $self->{Num_a}   = _bytes2bignum($self->_unformat($Bytes_a)) if defined $Bytes_a;
+  if (defined $Bytes_a && !defined $Bytes_A) {
+    $self->{Num_A} = $self->_calc_A;
+  }
   return $self;
 }
 
@@ -243,6 +246,9 @@ sub server_init {
   $self->{Num_A}   = _bytes2bignum($self->_unformat($Bytes_A)) if defined $Bytes_A;
   $self->{Num_B}   = _bytes2bignum($self->_unformat($Bytes_B)) if defined $Bytes_B;
   $self->{Num_b}   = _bytes2bignum($self->_unformat($Bytes_b)) if defined $Bytes_b;
+  if (defined $Bytes_b && !defined $Bytes_B) {
+    $self->{Num_B} = $self->_calc_B;
+  }
   return $self;
 }
 
