@@ -5,7 +5,7 @@ package Crypt::SRP;
 use strict;
 use warnings;
 
-our $VERSION = '0.017_001';
+our $VERSION = '0.018';
 
 use Math::BigInt lib => 'LTM'; # Math::BigInt::LTM is part of CryptX-0.029+
 use Crypt::Mac::HMAC qw(hmac);
@@ -814,9 +814,9 @@ the same encoding as well.
  #               as SHAx(S) or SHAx_Interleaved(S) see rfc2945 (3.1 Interleaved SHA)
  # saltlen     - DEFAULT=32
  #               default length (in bytes) for generated salt
- # srptools    - DEFAULT=0
+ # srptools    - DEFAULT=0 (since v0.018)
  #               operate in a mode compatible with python package srptools
- # appletv     - DEFAULT=0
+ # appletv     - DEFAULT=0 (since v0.018)
  #               operate in a mode compatible with SRP6a used by AppleTV / AirPlayAuth
 
  #or (OLD interface)

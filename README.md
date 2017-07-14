@@ -122,9 +122,9 @@ the same encoding as well.
         #               as SHAx(S) or SHAx_Interleaved(S) see rfc2945 (3.1 Interleaved SHA)
         # saltlen     - DEFAULT=32
         #               default length (in bytes) for generated salt
-        # srptools    - DEFAULT=0
+        # srptools    - DEFAULT=0 (since v0.018)
         #               operate in a mode compatible with python package srptools
-        # appletv     - DEFAULT=0
+        # appletv     - DEFAULT=0 (since v0.018)
         #               operate in a mode compatible with SRP6a used by AppleTV / AirPlayAuth
 
         #or (OLD interface)
